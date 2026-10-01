@@ -98,7 +98,8 @@ export function FormularioVacante({
           />
           <p id="ayuda-obligatorios" className={ayuda}>
             Uno por renglón. Si el CV no muestra evidencia de alguno, el candidato será NO VIABLE.
-            Escríbelos de forma verificable (ej. &quot;Excel avanzado: tablas dinámicas&quot;).
+            Escríbelos de forma verificable (ej. &quot;Excel avanzado: tablas dinámicas&quot;). No
+            incluyas edad, género, estado civil, apariencia, religión, nacionalidad ni domicilio.
           </p>
         </div>
         <div>

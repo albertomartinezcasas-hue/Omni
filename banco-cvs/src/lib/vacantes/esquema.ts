@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { atributosProtegidosEn } from "@/lib/analizador/atributosProtegidos";
 import { MODALIDADES, NIVELES_ESTUDIO, NIVELES_IDIOMA } from "@/lib/catalogos";
 
 export const esquemaRequisito = z.object({ id: z.string(), texto: z.string() });
@@ -30,7 +31,8 @@ const listaRequisitos = (minimo: number, mensaje: string) =>
         .max(20, { error: "Máximo 20 requisitos por lista." }),
     );
 
-export const esquemaVacante = z.object({
+export const esquemaVacante = z
+  .object({
   titulo: z.string().trim().min(3, { error: "Escribe el título de la vacante." }).max(120),
   area: z.string().trim().min(2, { error: "Escribe el área." }).max(80),
   descripcion: z.string().trim().min(10, { error: "Escribe una descripción." }).max(5000),
@@ -45,7 +47,27 @@ export const esquemaVacante = z.object({
   idiomas: z.array(esquemaIdioma).max(5, { error: "Máximo 5 idiomas." }),
   modalidad: z.enum(MODALIDADES, { error: "Selecciona la modalidad." }),
   ubicacion: z.string().trim().min(2, { error: "Escribe la ubicación." }).max(120),
-});
+  })
+  .superRefine((v, ctx) => {
+    // No discriminación: ningún texto de la vacante puede pedir atributos protegidos.
+    const campos: [string, string][] = [
+      ["título", v.titulo],
+      ["área", v.area],
+      ["descripción", v.descripcion],
+      ["requisitos obligatorios", v.requisitosObligatorios.join("\n")],
+      ["requisitos deseables", v.requisitosDeseables.join("\n")],
+    ];
+    for (const [campo, texto] of campos) {
+      const atributos = atributosProtegidosEn(texto);
+      if (atributos.length) {
+        ctx.addIssue({
+          code: "custom",
+          message: `El campo «${campo}» menciona: ${atributos.join(", ")}. Por ley no se puede seleccionar por edad, género, estado civil, embarazo, religión, origen étnico o nacional, discapacidad, apariencia ni domicilio; quita esa parte.`,
+        });
+        return;
+      }
+    }
+  });
 
 export type DatosVacante = z.infer<typeof esquemaVacante>;
 
