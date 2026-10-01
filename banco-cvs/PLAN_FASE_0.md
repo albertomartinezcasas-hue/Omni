@@ -11,6 +11,7 @@ Convenciones:
 - SQLite no maneja bien enums ni JSON nativo en todas las versiones de Prisma; los campos de catálogo se guardan como `String` y se validan con zod + tipos TypeScript (`"ADMIN" | "USUARIO"`, etc.). Las listas (requisitos, idiomas, resultado del análisis) se guardan como `String` con JSON validado por zod al leer y al escribir.
 - Fechas en UTC; se muestran en hora de la Ciudad de México.
 - Ningún registro de usuario se borra. Los CVs solo los borra un Admin (definitivo).
+- Todos los campos `…Id` se declaran como relaciones Prisma (`@relation`): `onDelete: Cascade` de `Cv` → `Analisis` → `AjusteCategoria`; `onDelete: Restrict` hacia `Usuario` y `Vacante` (el bloque siguiente las resume en comentarios por legibilidad).
 
 ```prisma
 model Usuario {
@@ -90,6 +91,7 @@ model Analisis {
   puntajeF           Float
   resultado          String   // JSON verificado: evidencias por requisito, años y puestos, estudios, idiomas,
                               // cualidades (con cita), brechas, preguntas de entrevista
+  vacanteSnapshot    String   // JSON: requisitos (texto), años y estudios mínimos e idiomas tal como estaban al analizar
   ajustes            AjusteCategoria[]
   @@index([vacanteId, puntaje])
   @@index([cvId])
@@ -148,7 +150,7 @@ Notas:
 | `/cambiar-contrasena` | Cambio obligatorio de contraseña temporal. Mientras `debeCambiarContrasena = true`, **toda** página, acción o API redirige/rechaza hacia aquí | ✅ | ✅ |
 | `/cuenta` | Cambiar mi contraseña | ✅ | ✅ |
 | `/` → `/vacantes` | Lista de vacantes (activas y archivadas en pestaña aparte, solo lectura) | ✅ | ✅ + botones Crear / Editar / Archivar |
-| `/vacantes/[id]` | Vista por vacante: candidatos agrupados Excelente / Bueno / Pasable / No viable, ordenados por puntaje; marca "Desactualizado"; botón **"Subir y analizar CVs"** | ✅ | ✅ |
+| `/vacantes/[id]` | Vista por vacante: candidatos agrupados Excelente / Bueno / Pasable / No viable, ordenados por puntaje; marca con texto "Desactualizado" y "Re-analizar" por fila; botón **"Subir y analizar CVs"**; estado vacío "Aún no hay CVs analizados para esta vacante" | ✅ | ✅ |
 | `/vacantes/nueva`, `/vacantes/[id]/editar` | Formulario de vacante | ❌ | ✅ |
 | `/cvs` | Repositorio: búsqueda (nombre, palabra clave) y filtros (vacante, categoría, fecha de carga, quién subió) | ✅ | ✅ |
 | `/cvs/subir?vacante=…` | Carga múltiple (≤ 20) con cola visible, aviso de duplicados y "Reintentar" | ✅ | ✅ |
@@ -158,6 +160,8 @@ Notas:
 | `/admin/umbrales` | Editar umbrales de categoría | ❌ | ✅ |
 | `/admin/bitacora` | Bitácora (solo lectura, filtros por fecha, usuario y acción) | ❌ | ✅ |
 
+- **Vacantes archivadas = solo lectura** (verificado también en el servidor): en la vista de una vacante ARCHIVADA se muestra la franja "Vacante archivada · solo lectura" y se ocultan "Subir y analizar CVs", "Re-analizar" y "Cambiar categoría" de sus análisis; las acciones de servidor correspondientes rechazan con 409 si la vacante está archivada. Los selectores de vacante en `/cvs/subir` y "Analizar contra otra vacante" solo listan vacantes ACTIVAS. Los análisis existentes siguen visibles completos.
+- Confirmación obligatoria en: eliminar CV ("Esta acción no se puede deshacer", con el nombre del archivo), archivar vacante, todas las acciones de usuarios y guardar umbrales (avisa que se recalcularán las categorías mostradas).
 - El menú del Usuario no muestra enlaces de Admin; si entra por URL directa a `/admin/*` o a formularios de vacante, recibe una página "No tienes permiso" (403) generada en el servidor.
 - **Carga → veredicto en 3 clics**: (1) en la vacante, clic en "Subir y analizar CVs"; (2) seleccionar archivos en el diálogo (al confirmarlo, la cola inicia sola); (3) clic en "Ver resultado" en la fila del archivo. Desde `/cvs/subir` sin vacante preseleccionada se agrega un paso (elegir vacante).
 - Primer acceso: `/login` → `/cambiar-contrasena` (contraseña actual temporal + nueva + confirmación) → `/vacantes`.
@@ -193,8 +197,13 @@ banco-cvs/
 │   │       └── analisis/route.ts            # POST analizar CV × vacante
 │   ├── components/              # UI (badges de categoría, diálogos de confirmación, cola de carga…)
 │   ├── lib/
-│   │   ├── auth/                # TODO lo de autenticación: config Auth.js, credenciales, bloqueo,
-│   │   │                        # contraseñas, sesión; exporta obtenerUsuarioActual() y requerirRol(rol)
+│   │   ├── auth/                # TODO lo de autenticación: config Auth.js, credenciales, bloqueo, hash,
+│   │   │                        # contraseñas temporales, cambio y restablecimiento, versionSesion.
+│   │   │                        # Resto de la app: solo obtenerUsuarioActual() y requerirRol(rol).
+│   │   │                        # Rutas de infraestructura (api/auth, login, cambiar-contrasena, cuenta,
+│   │   │                        # acción "restablecer" de usuarios): handlers, iniciarSesion, cerrarSesion,
+│   │   │                        # cambiarContrasena, restablecerContrasena, crearCredencialTemporal.
+│   │   │                        # ESLint no-restricted-imports impide usar bcryptjs/next-auth fuera de aquí.
 │   │   ├── db.ts                # cliente Prisma
 │   │   ├── bitacora.ts          # registrarEvento() (solo inserción)
 │   │   ├── usuarios/            # alta, rol, activar, restablecer, protección último Admin
@@ -241,9 +250,10 @@ Variables de entorno (`.env.example`): `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=cla
 - **Bloqueo**: al 5.º fallo consecutivo `bloqueadoHasta = ahora + 15 min` y evento `CUENTA_BLOQUEADA`; mientras dure, ni la contraseña correcta entra. Un inicio exitoso reinicia el contador. Restablecer contraseña también lo reinicia.
 - **Sesión**: estrategia JWT de Auth.js (obligatoria con Credentials), cookie `httpOnly`, `secure`, `sameSite=lax`; `maxAge` 8 h **absoluto** (el token guarda la hora de inicio y se rechaza al pasar 8 h aunque haya actividad). El token solo contiene `id` y `versionSesion`.
 - **Cada petición** (`obtenerUsuarioActual()`): lee el usuario en BD; rechaza si no existe, `activo = false`, `versionSesion` distinto o sesión > 8 h. El rol **siempre** viene de BD, nunca del token. `requerirRol(rol)` lanza 403. Si `debeCambiarContrasena`, todo salvo `/cambiar-contrasena` y cerrar sesión se rechaza.
-- **Invalidación inmediata**: desactivar, cambiar rol, restablecer o cambiar contraseña → `versionSesion + 1`.
+- **Invalidación inmediata**: desactivar, cambiar rol, restablecer contraseña o cerrar sesión → `versionSesion + 1`. Al cambiar la propia contraseña también se incrementa y se emite de inmediato un token nuevo con la versión nueva (el usuario continúa sin volver a `/login`).
+- **Restablecer** (una transacción): hash nuevo, `debeCambiarContrasena = true`, `intentosFallidos = 0`, `bloqueadoHasta = null`, `versionSesion + 1`.
 - **Último Admin**: desactivar o degradar se hace en transacción que cuenta Admins activos distintos del objetivo; si es 0, se rechaza.
-- **Contraseñas temporales**: 16 caracteres aleatorios (CSPRNG, sin caracteres ambiguos); se devuelven una sola vez en la respuesta de la acción y no se guardan ni registran. Mínimo 12 caracteres para contraseñas nuevas; la nueva debe ser distinta de la actual.
+- **Contraseñas temporales**: 16 caracteres aleatorios (CSPRNG, sin caracteres ambiguos); se devuelven una sola vez en la respuesta de la acción y no se guardan ni registran. Contraseñas nuevas: mínimo 12 caracteres y máximo 72 bytes UTF-8 (límite de bcrypt), normalizadas NFC; la nueva debe ser distinta de la actual. `crear-admin` usa el mismo generador e imprime la contraseña una sola vez en stdout.
 - **CSRF**: server actions con verificación de origen de Next.js; route handlers `POST` validan el encabezado `Origin`.
 - **Archivos**: límite de 10 MB verificado antes de leer el cuerpo completo; firma por contenido; nombre UUID; ruta construida solo con el UUID de BD (sin path traversal); descarga con `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` y evento `CV_DESCARGADO`.
 - **Datos al modelo**: correos, teléfonos, URLs, CURP y RFC sustituidos antes de llamar a la API; el CV va dentro de `<cv>…</cv>` y el prompt de sistema indica que es solo un documento.
