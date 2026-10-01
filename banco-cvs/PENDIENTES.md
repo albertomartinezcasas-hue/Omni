@@ -52,6 +52,11 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Baja] Columna "Alta: fecha · por" en la lista de usuarios. — Pendiente (Fase 3).
 - [Baja] Mientras no exista el análisis, "Subir y analizar CVs" puede confundir. — Pendiente (se resuelve en la Fase 2).
 
+- Ronda 2 (APROBADO CON AJUSTES):
+  - [Media] Faltaban rangos de edad sin la palabra "edad" ("De 25 a 35 años", "Mayor de 30") y otros términos: orientación sexual, salud, VIH, tatuajes, "sexo indistinto". — **Corregido** con pruebas.
+  - [Media] Falsos positivos: "a domicilio", "vacante incluyente para personas con discapacidad", "Jóvenes Construyendo el Futuro", "igualdad de género", "colonia". — **Corregido**: contextos permitidos y "colonia" retirada de la lista, con pruebas.
+  - [Baja] El error no indicaba el renglón ni el fragmento. — **Corregido.**
+
 ### revisor-seguridad
 - [Media] Carrera en el bloqueo con peticiones en paralelo. — **Corregido**: reserva atómica del intento con `updateMany` condicional, más una prueba de 12 intentos en paralelo.
 - [Media] La protección contra bombas de descompresión confía en tamaños declarados, y `Promise.race` no cancela el trabajo: extraer en un `worker_thread` con `resourceLimits` y `terminate()`. — Pendiente (Fase 2 o 3, antes de producción).

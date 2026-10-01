@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atributosProtegidosEn } from "@/lib/analizador/atributosProtegidos";
+import { coincidenciasProtegidas } from "@/lib/analizador/atributosProtegidos";
 import { MODALIDADES, NIVELES_ESTUDIO, NIVELES_IDIOMA } from "@/lib/catalogos";
 
 export const esquemaRequisito = z.object({ id: z.string(), texto: z.string() });
@@ -50,19 +50,22 @@ export const esquemaVacante = z
   })
   .superRefine((v, ctx) => {
     // No discriminación: ningún texto de la vacante puede pedir atributos protegidos.
-    const campos: [string, string][] = [
-      ["título", v.titulo],
-      ["área", v.area],
-      ["descripción", v.descripcion],
-      ["requisitos obligatorios", v.requisitosObligatorios.join("\n")],
-      ["requisitos deseables", v.requisitosDeseables.join("\n")],
+    const campos: [string, string, string[]][] = [
+      ["título", "titulo", [v.titulo]],
+      ["área", "area", [v.area]],
+      ["descripción", "descripcion", [v.descripcion]],
+      ["requisitos obligatorios", "requisitosObligatorios", v.requisitosObligatorios],
+      ["requisitos deseables", "requisitosDeseables", v.requisitosDeseables],
     ];
-    for (const [campo, texto] of campos) {
-      const atributos = atributosProtegidosEn(texto);
-      if (atributos.length) {
+    for (const [nombre, campo, renglones] of campos) {
+      for (const [i, renglon] of renglones.entries()) {
+        const [coincidencia] = coincidenciasProtegidas(renglon);
+        if (!coincidencia) continue;
+        const ubicacion = renglones.length > 1 ? ` (renglón ${i + 1})` : "";
         ctx.addIssue({
           code: "custom",
-          message: `El campo «${campo}» menciona: ${atributos.join(", ")}. Por ley no se puede seleccionar por edad, género, estado civil, embarazo, religión, origen étnico o nacional, discapacidad, apariencia ni domicilio; quita esa parte.`,
+          path: [campo],
+          message: `El campo «${nombre}»${ubicacion} menciona «${coincidencia.fragmento}» (${coincidencia.atributo}). Por ley no se puede seleccionar por edad, género, estado civil, embarazo, religión, origen étnico o nacional, discapacidad, salud, apariencia ni domicilio; quita esa parte.`,
         });
         return;
       }
