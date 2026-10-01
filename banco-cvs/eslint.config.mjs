@@ -8,7 +8,7 @@ const eslintConfig = defineConfig([
   // La autenticación vive solo en src/lib/auth/ (preparación para Microsoft Entra ID).
   {
     files: ["**/*.{ts,tsx}"],
-    ignores: ["src/lib/auth/**", "tests/**"],
+    ignores: ["src/lib/auth/**", "tests/**", "src/app/api/auth/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -17,7 +17,13 @@ const eslintConfig = defineConfig([
             { name: "bcryptjs", message: "Usa src/lib/auth/." },
             { name: "next-auth", message: "Usa src/lib/auth/." },
           ],
-          patterns: [{ group: ["next-auth/*"], message: "Usa src/lib/auth/." }],
+          patterns: [
+            { group: ["next-auth/*"], message: "Usa src/lib/auth/." },
+            {
+              group: ["@/lib/auth/*", "!@/lib/auth/acciones", "!@/lib/auth/administracion"],
+              message: "Fuera de src/lib/auth/ usa solo @/lib/auth (obtenerUsuarioActual, requerirRol).",
+            },
+          ],
         },
       ],
     },

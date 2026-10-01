@@ -47,7 +47,14 @@ export async function verificarCredenciales(
     return null;
   }
 
-  if (usuario.bloqueadoHasta && usuario.bloqueadoHasta > ahora) {
+  // Reserva atómica del intento: solo pasa si la cuenta no está bloqueada y le quedan
+  // intentos. Así, peticiones en paralelo no pueden rebasar el límite de intentos.
+  const sinBloqueo = { OR: [{ bloqueadoHasta: null }, { bloqueadoHasta: { lte: ahora } }] };
+  const reserva = await db.usuario.updateMany({
+    where: { id: usuario.id, ...sinBloqueo, intentosFallidos: { lt: MAX_INTENTOS } },
+    data: { intentosFallidos: { increment: 1 } },
+  });
+  if (reserva.count === 0) {
     await compararContraFicticio(contrasena);
     await registrarEvento({
       actor,
@@ -60,10 +67,7 @@ export async function verificarCredenciales(
   }
 
   if (!(await compararContrasena(contrasena, usuario.hashContrasena))) {
-    const actualizado = await db.usuario.update({
-      where: { id: usuario.id },
-      data: { intentosFallidos: { increment: 1 } },
-    });
+    const actualizado = await db.usuario.findUniqueOrThrow({ where: { id: usuario.id } });
     await registrarEvento({
       actor,
       accion: "LOGIN_FALLIDO",
@@ -71,12 +75,12 @@ export async function verificarCredenciales(
       entidadId: usuario.id,
       detalle: { motivo: "CONTRASENA_INCORRECTA", intento: actualizado.intentosFallidos },
     });
-    if (actualizado.intentosFallidos >= MAX_INTENTOS) {
-      const bloqueadoHasta = new Date(ahora.getTime() + MINUTOS_BLOQUEO * 60_000);
-      await db.usuario.update({
-        where: { id: usuario.id },
-        data: { bloqueadoHasta, intentosFallidos: 0 },
-      });
+    const bloqueadoHasta = new Date(ahora.getTime() + MINUTOS_BLOQUEO * 60_000);
+    const bloqueo = await db.usuario.updateMany({
+      where: { id: usuario.id, intentosFallidos: { gte: MAX_INTENTOS } },
+      data: { bloqueadoHasta, intentosFallidos: 0 },
+    });
+    if (bloqueo.count > 0) {
       await registrarEvento({
         actor,
         accion: "CUENTA_BLOQUEADA",
@@ -88,10 +92,12 @@ export async function verificarCredenciales(
     return null;
   }
 
-  await db.usuario.update({
-    where: { id: usuario.id },
+  // Acierto: reinicia el contador, salvo que otra petición haya bloqueado la cuenta mientras tanto.
+  const acierto = await db.usuario.updateMany({
+    where: { id: usuario.id, ...sinBloqueo },
     data: { intentosFallidos: 0, bloqueadoHasta: null },
   });
+  if (acierto.count === 0) return null;
   await registrarEvento({ actor, accion: "LOGIN_OK", entidadTipo: "USUARIO", entidadId: usuario.id });
   return { id: usuario.id, versionSesion: usuario.versionSesion };
 }

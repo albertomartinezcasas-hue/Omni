@@ -68,6 +68,18 @@ describe("Inicio de sesión", () => {
     expect(await verificarCredenciales(usuario.correo, CONTRASENA)).not.toBeNull();
   });
 
+  it("intentos en paralelo no rebasan el límite de 5", async () => {
+    const usuario = await crearUsuario();
+    await Promise.all(
+      Array.from({ length: 12 }, () => verificarCredenciales(usuario.correo, "contraseña-equivocada")),
+    );
+    const eventos = await db.eventoBitacora.findMany({ where: { actorId: usuario.id, accion: "LOGIN_FALLIDO" } });
+    const comparados = eventos.filter((e) => e.detalle?.includes("CONTRASENA_INCORRECTA"));
+    expect(comparados.length).toBe(MAX_INTENTOS);
+    expect(await db.eventoBitacora.count({ where: { actorId: usuario.id, accion: "CUENTA_BLOQUEADA" } })).toBe(1);
+    expect(await verificarCredenciales(usuario.correo, CONTRASENA)).toBeNull();
+  });
+
   it("no bloquea con 4 intentos fallidos y un acceso correcto reinicia el contador", async () => {
     const usuario = await crearUsuario();
     for (let i = 0; i < MAX_INTENTOS - 1; i++) await verificarCredenciales(usuario.correo, "mala-mala-mala");
