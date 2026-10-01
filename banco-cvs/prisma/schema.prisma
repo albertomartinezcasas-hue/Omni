@@ -1,0 +1,152 @@
+// Banco de CVs — esquema de base de datos (SQLite).
+// Los campos de catálogo son String y se validan con zod en src/lib.
+// Las listas y resultados son String con JSON validado con zod.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Usuario {
+  id                    String    @id @default(cuid())
+  correo                String    @unique
+  nombre                String
+  rol                   String // ADMIN | USUARIO
+  activo                Boolean   @default(true)
+  hashContrasena        String?
+  debeCambiarContrasena Boolean   @default(true)
+  intentosFallidos      Int       @default(0)
+  bloqueadoHasta        DateTime?
+  versionSesion         Int       @default(0)
+  oid                   String?   @unique
+  creadoEn              DateTime  @default(now())
+  actualizadoEn         DateTime  @updatedAt
+  creadoPorId           String?
+  creadoPor             Usuario?  @relation("UsuarioCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+
+  usuariosCreados      Usuario[]               @relation("UsuarioCreador")
+  vacantesCreadas      Vacante[]               @relation("VacanteCreador")
+  vacantesActualizadas Vacante[]               @relation("VacanteActualizador")
+  cvsSubidos           Cv[]
+  analisis             Analisis[]
+  ajustes              AjusteCategoria[]
+  umbrales             ConfiguracionUmbrales[]
+  eventos              EventoBitacora[]
+}
+
+model Vacante {
+  id                     String    @id @default(cuid())
+  titulo                 String
+  area                   String
+  descripcion            String
+  requisitosObligatorios String // JSON [{ id, texto }]
+  requisitosDeseables    String // JSON [{ id, texto }]
+  aniosMinimos           Int
+  nivelEstudiosMinimo    String
+  idiomas                String // JSON [{ idioma, nivel }]
+  modalidad              String // PRESENCIAL | HIBRIDO | REMOTO
+  ubicacion              String
+  estado                 String    @default("ACTIVA") // ACTIVA | ARCHIVADA
+  version                Int       @default(1)
+  creadoPorId            String
+  creadoPor              Usuario   @relation("VacanteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  actualizadoPorId       String
+  actualizadoPor         Usuario   @relation("VacanteActualizador", fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+  creadoEn               DateTime  @default(now())
+  actualizadoEn          DateTime  @updatedAt
+  archivadaEn            DateTime?
+  analisis               Analisis[]
+
+  @@index([estado])
+}
+
+model Cv {
+  id              String     @id @default(cuid())
+  nombreCandidato String?
+  nombreArchivo   String
+  archivoId       String     @unique
+  tipo            String // PDF | DOCX
+  tamanoBytes     Int
+  textoExtraido   String
+  hashTexto       String
+  correoCandidato String?
+  estado          String // CON_TEXTO | SIN_TEXTO_LEGIBLE
+  subidoPorId     String
+  subidoPor       Usuario    @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  creadoEn        DateTime   @default(now())
+  analisis        Analisis[]
+
+  @@index([hashTexto])
+  @@index([correoCandidato])
+  @@index([creadoEn])
+}
+
+model Analisis {
+  id              String            @id @default(cuid())
+  cvId            String
+  cv              Cv                @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  vacanteId       String
+  vacante         Vacante           @relation(fields: [vacanteId], references: [id], onDelete: Restrict)
+  vacanteVersion  Int
+  vacanteSnapshot String // JSON de la vacante tal como estaba al analizar
+  modelo          String
+  creadoPorId     String
+  creadoPor       Usuario           @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  creadoEn        DateTime          @default(now())
+  veredicto       String // VIABLE | NO_VIABLE
+  motivosNoViable String // JSON string[]
+  puntaje         Int
+  puntajeO        Float
+  puntajeD        Float?
+  puntajeE        Float
+  puntajeF        Float
+  resultado       String // JSON verificado
+  ajustes         AjusteCategoria[]
+
+  @@index([vacanteId, puntaje])
+  @@index([cvId])
+}
+
+model AjusteCategoria {
+  id         String   @id @default(cuid())
+  analisisId String
+  analisis   Analisis @relation(fields: [analisisId], references: [id], onDelete: Cascade)
+  categoria  String // EXCELENTE | BUENO | PASABLE | NO_VIABLE
+  comentario String
+  autorId    String
+  autor      Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  creadoEn   DateTime @default(now())
+
+  @@index([analisisId])
+}
+
+model ConfiguracionUmbrales {
+  id               Int      @id @default(1)
+  excelente        Int      @default(85)
+  bueno            Int      @default(70)
+  pasable          Int      @default(55)
+  actualizadoPorId String?
+  actualizadoPor   Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+  actualizadoEn    DateTime @updatedAt
+}
+
+model EventoBitacora {
+  id          String   @id @default(cuid())
+  fecha       DateTime @default(now())
+  actorId     String?
+  actor       Usuario? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  actorNombre String
+  actorCorreo String
+  accion      String
+  entidadTipo String?
+  entidadId   String?
+  detalle     String?
+
+  @@index([fecha])
+  @@index([actorId])
+  @@index([accion])
+}

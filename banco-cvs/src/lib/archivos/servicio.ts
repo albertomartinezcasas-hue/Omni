@@ -1,0 +1,183 @@
+import { registrarEvento, type Actor } from "@/lib/bitacora";
+import { db } from "@/lib/db";
+import { ErrorNegocio } from "@/lib/errores";
+import { eliminarArchivo, guardarArchivo, leerArchivo } from "./almacenamiento";
+import { extraerCorreo, hashDeTexto } from "./duplicados";
+import { esTextoLegible, extraerTexto } from "./extraer";
+import { detectarTipo, TAMANO_MAXIMO } from "./firma";
+
+export const ESTADO_SIN_TEXTO = "SIN_TEXTO_LEGIBLE";
+export const ETIQUETA_ESTADO_CV: Record<string, string> = {
+  CON_TEXTO: "Texto extraído",
+  SIN_TEXTO_LEGIBLE: "Sin texto legible (posible PDF escaneado)",
+};
+
+export type CvDuplicado = {
+  id: string;
+  nombre: string;
+  subidoPor: string;
+  creadoEn: string;
+  coincidencia: "correo" | "texto";
+};
+
+export type ResultadoCarga =
+  | { estado: "GUARDADO"; id: string; sinTexto: boolean }
+  | { estado: "DUPLICADO"; duplicados: CvDuplicado[] };
+
+function limpiarNombre(nombre: string) {
+  // Sin rutas, caracteres de control ni comillas; solo se guarda en la base de datos.
+  const base = nombre.split(/[\\/]/).pop() ?? "";
+  return base.replace(/[\u0000-\u001f\u007f"]/g, "").trim().slice(0, 200) || "cv";
+}
+
+/**
+ * Valida, extrae el texto, revisa duplicados y guarda el CV.
+ * Si hay duplicados y no se pidió "Guardar de todos modos", no guarda nada.
+ */
+export async function subirCv(
+  actor: Actor,
+  entrada: { nombreArchivo: string; contenido: Buffer; forzar: boolean },
+): Promise<ResultadoCarga> {
+  const { contenido } = entrada;
+  if (contenido.length === 0) throw new ErrorNegocio("El archivo está vacío.");
+  if (contenido.length > TAMANO_MAXIMO) throw new ErrorNegocio("El archivo supera 10 MB.");
+  const tipo = detectarTipo(contenido);
+  if (!tipo) throw new ErrorNegocio("Formato no válido: solo se aceptan PDF y DOCX.");
+
+  let texto: string;
+  try {
+    texto = await extraerTexto(contenido, tipo);
+  } catch {
+    throw new ErrorNegocio("No se pudo leer el archivo: puede estar dañado o protegido.");
+  }
+
+  const hashTexto = hashDeTexto(texto);
+  const correoCandidato = extraerCorreo(texto);
+
+  if (!entrada.forzar) {
+    const existentes = await db.cv.findMany({
+      where: {
+        OR: [{ hashTexto }, ...(correoCandidato ? [{ correoCandidato }] : [])],
+      },
+      include: { subidoPor: { select: { nombre: true } } },
+      take: 5,
+      orderBy: { creadoEn: "desc" },
+    });
+    if (existentes.length > 0) {
+      return {
+        estado: "DUPLICADO",
+        duplicados: existentes.map((cv) => ({
+          id: cv.id,
+          nombre: cv.nombreCandidato ?? cv.nombreArchivo,
+          subidoPor: cv.subidoPor.nombre,
+          creadoEn: cv.creadoEn.toISOString(),
+          coincidencia: cv.hashTexto === hashTexto ? "texto" : "correo",
+        })),
+      };
+    }
+  }
+
+  const sinTexto = !esTextoLegible(texto);
+  const nombreArchivo = limpiarNombre(entrada.nombreArchivo);
+  const archivoId = await guardarArchivo(contenido);
+  try {
+    const cv = await db.$transaction(async (tx) => {
+      const creado = await tx.cv.create({
+        data: {
+          nombreArchivo,
+          archivoId,
+          tipo,
+          tamanoBytes: contenido.length,
+          textoExtraido: texto,
+          hashTexto,
+          correoCandidato,
+          estado: sinTexto ? ESTADO_SIN_TEXTO : "CON_TEXTO",
+          subidoPorId: actor.id,
+        },
+      });
+      await registrarEvento(
+        {
+          actor,
+          accion: "CV_SUBIDO",
+          entidadTipo: "CV",
+          entidadId: creado.id,
+          detalle: { archivo: nombreArchivo, tipo, sinTexto, duplicadoConfirmado: entrada.forzar },
+        },
+        tx,
+      );
+      return creado;
+    });
+    return { estado: "GUARDADO", id: cv.id, sinTexto };
+  } catch (error) {
+    await eliminarArchivo(archivoId);
+    throw error;
+  }
+}
+
+/** Devuelve el archivo para descarga y registra el evento. */
+export async function descargarCv(actor: Actor, cvId: string) {
+  const cv = await db.cv.findUnique({ where: { id: cvId } });
+  if (!cv) return null;
+  const contenido = await leerArchivo(cv.archivoId);
+  await registrarEvento({
+    actor,
+    accion: "CV_DESCARGADO",
+    entidadTipo: "CV",
+    entidadId: cv.id,
+    detalle: { archivo: cv.nombreArchivo },
+  });
+  return { contenido, nombreArchivo: cv.nombreArchivo, tipo: cv.tipo as "PDF" | "DOCX" };
+}
+
+/** Eliminación definitiva (solo Admin; el permiso se verifica antes de llamar). */
+export async function eliminarCv(actor: Actor, cvId: string) {
+  const cv = await db.cv.findUnique({ where: { id: cvId } });
+  if (!cv) throw new ErrorNegocio("El CV no existe.");
+  await db.$transaction(async (tx) => {
+    await tx.cv.delete({ where: { id: cvId } });
+    await registrarEvento(
+      {
+        actor,
+        accion: "CV_ELIMINADO",
+        entidadTipo: "CV",
+        entidadId: cvId,
+        detalle: { archivo: cv.nombreArchivo, candidato: cv.nombreCandidato },
+      },
+      tx,
+    );
+  });
+  await eliminarArchivo(cv.archivoId);
+}
+
+export function listarCvs() {
+  return db.cv.findMany({
+    orderBy: { creadoEn: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      nombreCandidato: true,
+      nombreArchivo: true,
+      tipo: true,
+      estado: true,
+      creadoEn: true,
+      subidoPor: { select: { nombre: true } },
+      _count: { select: { analisis: true } },
+    },
+  });
+}
+
+export function obtenerCv(id: string) {
+  return db.cv.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      nombreCandidato: true,
+      nombreArchivo: true,
+      tipo: true,
+      tamanoBytes: true,
+      estado: true,
+      creadoEn: true,
+      subidoPor: { select: { nombre: true } },
+    },
+  });
+}

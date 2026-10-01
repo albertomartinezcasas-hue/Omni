@@ -1,0 +1,1 @@
+export const DURACION_SESION_SEGUNDOS = 8 * 60 * 60;

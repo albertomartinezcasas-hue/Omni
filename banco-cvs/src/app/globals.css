@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* Sin modo oscuro (fuera de alcance en esta versión). */
+body {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(15 23 42 / 0.5);
+}
