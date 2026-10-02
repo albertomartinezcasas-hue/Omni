@@ -7,8 +7,27 @@ import type { Extraccion, ResultadoVerificado, VacanteEvaluada } from "./tipos";
 
 const MIN_CARACTERES_CITA = 12;
 // Citas que parecen instrucciones dirigidas al sistema (posible inyección): nunca son evidencia.
-const PARECE_INSTRUCCION =
-  /\b(ignora|olvida|omite|disregard|ignore)\b.{0,40}\b(instrucci|reglas|indicaciones|instructions)|\b(calif[ií]ca(?:me|lo|la|r)?|eval[uú]a(?:me|lo|la)?|clasif[ií]ca(?:me|lo|la)?)\b.{0,30}\b(como|con)\b.{0,20}\b(excelente|bueno|viable|100|nivel)|\b(modelo de lenguaje|sistema de (?:ia|evaluaci[oó]n)|language model)\b/i;
+export const PARECE_INSTRUCCION =
+  /\b(ignora|olvida|omite|disregard|ignore)\b.{0,40}\b(instrucci|reglas|indicaciones|instructions)|\b(calif[ií]ca(?:me|lo|la|r)?|eval[uú]a(?:me|lo|la)?|clasif[ií]ca(?:me|lo|la)?)\b.{0,30}\b(como|con)\b.{0,20}\b(excelente|bueno|viable|100|nivel)|\binstrucci[oó]n(?:es)?\s+(?:para|al)\s+(?:el\s+)?(?:sistema|modelo|evaluador|asistente|ia|analizador)\b/i;
+
+export const MARCA_INSTRUCCION = "[TEXTO OMITIDO: parece una instrucción al sistema]";
+
+/**
+ * El CV es dato, nunca instrucciones: los renglones que parecen órdenes al sistema se omiten antes
+ * de enviar el texto a la API y antes de verificar citas (no pueden aportar evidencia).
+ */
+export function neutralizarInstrucciones(texto: string) {
+  let omitidos = 0;
+  const limpio = texto
+    .split("\n")
+    .map((renglon) => {
+      if (!PARECE_INSTRUCCION.test(renglon)) return renglon;
+      omitidos += 1;
+      return MARCA_INSTRUCCION;
+    })
+    .join("\n");
+  return { texto: limpio, omitidos };
+}
 
 /**
  * Comparación sin distinguir mayúsculas, con espacios normalizados, NFKC (ligaduras, ancho completo),

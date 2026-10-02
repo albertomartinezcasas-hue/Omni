@@ -8,7 +8,7 @@ import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
-import { verificarExtraccion } from "./verificar";
+import { neutralizarInstrucciones, verificarExtraccion } from "./verificar";
 
 const MIN_TIEMPO_REINTENTO_MS = 5_000;
 
@@ -82,7 +82,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   }
 
   const evaluada = vacanteEvaluada(vacante);
-  const textoOculto = ocultarDatosPersonales(cv.textoExtraido);
+  const { texto: textoOculto, omitidos } = neutralizarInstrucciones(ocultarDatosPersonales(cv.textoExtraido));
   const fechaAnalisis = new Date();
 
   let extraccion: Extraccion;
@@ -94,7 +94,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     throw error;
   }
 
-  const resultado = verificarExtraccion(extraccion, evaluada, textoOculto, fechaAnalisis);
+  const resultado = { ...verificarExtraccion(extraccion, evaluada, textoOculto, fechaAnalisis), instruccionesOmitidas: omitidos };
   const calificacion = calificar(resultado);
 
   return db.$transaction(async (tx) => {
@@ -131,6 +131,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
           veredicto: calificacion.veredicto,
           puntaje: calificacion.puntaje,
           modelo,
+          ...(omitidos ? { instruccionesOmitidas: omitidos } : {}),
         },
       },
       tx,

@@ -66,6 +66,12 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           {puedeReanalizar && <span className="print:hidden"><BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} /></span>}
         </div>
       )}
+      {(r.instruccionesOmitidas ?? 0) > 0 && (
+        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <span className="font-semibold">Atención:</span> este CV contiene texto que parece una instrucción al sistema
+          (posible intento de manipular el análisis). Se ignoró y no cuenta como evidencia. Revisa el CV original.
+        </div>
+      )}
       {a.ajustesPrevios.length > 0 && (
         <Aviso tipo="info">
           Hay un ajuste previo en un análisis anterior: {ETIQUETA_CATEGORIA[a.ajustesPrevios[0].categoria as Categoria]} por{" "}

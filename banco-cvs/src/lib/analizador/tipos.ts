@@ -80,6 +80,8 @@ export type RequisitoEvaluado = {
 
 export type ResultadoVerificado = {
   nombreCandidato: string | null;
+  /** Renglones del CV omitidos por parecer instrucciones al sistema (posible inyección). */
+  instruccionesOmitidas?: number;
   requisitos: RequisitoEvaluado[];
   experiencia: {
     anios: number;
