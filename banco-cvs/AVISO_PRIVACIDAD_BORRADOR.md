@@ -49,7 +49,7 @@ Para apoyar la revisión de CVs usamos un sistema que:
 
 Antes de enviar tu CV al servicio de inteligencia artificial, el sistema retira de forma automatizada tu correo, tus números de teléfono, tus identificadores oficiales (CURP, RFC u otros) y algunos datos personales que aparecen con etiqueta (por ejemplo, «Edad:», «Estado civil:» o «Domicilio:»). **Este retiro no es infalible.** Tu nombre, tu trayectoria académica y laboral y cualquier otro dato que incluyas en el texto del CV sí se envían.
 
-Si no estás de acuerdo con este tratamiento automatizado, puedes oponerte. Escríbenos a **[correo]** y tu CV lo evaluará únicamente una persona.
+Si no estás de acuerdo con este tratamiento automatizado, puedes oponerte. Escríbenos a **[correo]** y tu CV lo evaluará únicamente una persona. [Antes de publicar esta promesa, debe existir el bloqueo de la nota 5 bis o un procedimiento escrito que la garantice.]
 
 ## 5. Transferencias y remisiones
 
@@ -103,7 +103,7 @@ Fecha de la última actualización: **[fecha]**.
 1. **Ley y autoridad vigentes.** Confirmar la versión vigente de la LFPDPPP y de su reglamento, la autoridad de protección de datos competente y los requisitos actuales del aviso integral y del aviso simplificado. La ley cambió en 2025.
 2. **Planes gratuitos de IA.** La app usa hoy los planes **gratuitos** de Groq y Gemini. Los términos del plan gratuito de Gemini permiten a Google usar el contenido enviado para mejorar sus productos. Con esos términos, el proveedor no actúa solo como encargado, por lo que podría tratarse de una **transferencia**, con la necesidad de consentimiento que eso implica. **Recomendación:** contratar planes de pago, cuyos términos excluyen el entrenamiento con los datos del cliente, y verificar los términos vigentes de cada proveedor.
 3. **Tratamiento internacional.** Los proveedores procesan los datos fuera de México. Revisar las cláusulas contractuales aplicables.
-4. **Nombre del candidato.** Por decisión del negocio, el sistema **sí** envía el nombre del candidato al proveedor de IA. Solo retira los datos de contacto y los identificadores. Confirmar que esto sea aceptable o pedir que se vuelva a activar la anonimización del nombre.
+4. **Nombre del candidato.** Por decisión del negocio, el sistema **sí** envía el nombre del candidato al proveedor de IA. Solo retira los datos de contacto, los identificadores y algunos datos personales con etiqueta. Confirmar que esto sea aceptable o pedir que se vuelva a activar la anonimización del nombre.
 5. **Decisiones automatizadas.** Confirmar las obligaciones sobre decisiones automatizadas y el derecho de oposición. La app ofrece revisión humana (el estado «Pendiente de revisión», el ajuste manual con comentario y la bitácora), pero **un NO VIABLE firme se asigna de forma automática**. Si la ley lo exige, la empresa debe establecer como procedimiento que una persona revise cada rechazo antes de comunicarlo.
 5 bis. **Oposición al análisis con IA.** Hoy se puede subir un CV sin analizarlo, pero la app no registra que el candidato se opuso, así que alguien podría analizarlo después. Para garantizarlo hace falta un campo nuevo en la base de datos que bloquee el análisis; ese cambio requiere aprobación.
 5 ter. **Datos sensibles.** El retiro automatizado no cubre datos sensibles escritos sin etiqueta (salud, discapacidad, embarazo, origen étnico, opiniones). Valorar si hace falta el consentimiento expreso que la ley pide para datos sensibles.

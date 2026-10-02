@@ -76,7 +76,7 @@ export function TablaCandidatos({
             </h3>
             {categoria === "REVISION" && filas.length > 0 && (
               <p className="px-4 pt-1 text-sm text-slate-700">
-                Requieren tu confirmación: revisa la evidencia en el CV y elige la categoría final con «Ajustar categoría».
+                Requieren tu confirmación: revisa la evidencia en el CV y elige la categoría final con «Cambiar categoría».
               </p>
             )}
             {filas.length === 0 ? (
