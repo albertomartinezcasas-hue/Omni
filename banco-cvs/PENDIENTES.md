@@ -205,3 +205,9 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - Corregido (Baja): `*_BASE_URL` con `http://` solo se acepta hacia localhost.
 - **Baja**: falta `import "server-only"` en `proveedores.ts` y `cliente.ts`. Requiere instalar el paquete `server-only`, una dependencia nueva que se debe aprobar. Hoy ningún componente cliente importa el analizador.
 - **Baja**: si un apellido del candidato coincide con el nombre de una empresa o de un lugar ("García Hermanos"), esa palabra también se reemplaza por [NOMBRE] en el texto anonimizado. Esto puede hacer que se descarte la cita de ese puesto cuando responde un proveedor anonimizado.
+
+#### Decisión del usuario: se elimina la anonimización adicional
+
+- Por decisión del usuario, se quitó la capa de anonimización (nombre, domicilios sin etiqueta y `*_ANONIMIZAR`). La ronda 2 del revisor-seguridad fue RECHAZADO por fugas de nombre en esa capa, y el usuario prefirió quitarla en lugar de hacer una tercera ronda.
+- Se mantiene el ocultamiento base para **todos** los proveedores, incluido Gemini: correo, teléfono, URL, CURP, RFC, RUT/DNI/INE, domicilio con etiqueta, edad, estado civil y demás datos protegidos.
+- **Alta (riesgo aceptado por el usuario)**: Gemini recibe el nombre del candidato y los domicilios que no llevan etiqueta. El plan gratuito de Gemini puede usar esos datos para entrenar. Antes de producción, se recomienda un plan de pago de Gemini (sin uso para entrenamiento) y el aviso de privacidad (LFPDPPP) que informe del envío a proveedores de IA externos.

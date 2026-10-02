@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
-import { anonimizarCv, ocultarDatosPersonales } from "./ocultar";
+import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
@@ -15,30 +15,18 @@ const MIN_TIEMPO_REINTENTO_MS = 5_000;
 /**
  * Paso 2 — Extracción con un solo reintento si el JSON no es válido.
  * El plazo de 60 s es total: el reintento solo usa el tiempo que queda.
- * Devuelve también el texto exacto que vio el proveedor que respondió (para verificar las citas contra él).
  */
 export async function extraerEvidencia(
   vacante: VacanteEvaluada,
   textoOculto: string,
   fechaAnalisis: Date = new Date(),
-  nombresConocidos: (string | null | undefined)[] = [],
 ) {
-  const anonimo = anonimizarCv(textoOculto, nombresConocidos);
-  // Sin nombre identificado no hay certeza de anonimizar: esos proveedores se omiten.
-  const textoAnonimo = anonimo.nombreEncontrado ? anonimo.texto : null;
-  const textoPara = (anonimizado: boolean) => (anonimizado ? textoAnonimo : textoOculto);
+  const mensaje = mensajeUsuario(vacante, textoOculto, fechaAnalisis);
   const limite = Date.now() + TIEMPO_MAXIMO_MS;
   for (let intento = 1; intento <= 2; intento++) {
     const restante = limite - Date.now();
     if (restante < MIN_TIEMPO_REINTENTO_MS) throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
-    const respuesta = await solicitarExtraccion(
-      PROMPT_SISTEMA,
-      (anonimizado) => {
-        const texto = textoPara(anonimizado);
-        return texto === null ? null : mensajeUsuario(vacante, texto, fechaAnalisis);
-      },
-      restante,
-    );
+    const respuesta = await solicitarExtraccion(PROMPT_SISTEMA, mensaje, restante);
     let datos: unknown;
     try {
       datos = JSON.parse(respuesta.json);
@@ -51,8 +39,6 @@ export async function extraerEvidencia(
         extraccion: validado.data as Extraccion,
         modelo: respuesta.modelo,
         proveedor: respuesta.proveedor,
-        anonimizado: respuesta.anonimizado,
-        textoVisto: textoPara(respuesta.anonimizado) ?? textoOculto,
       };
     }
   }
@@ -113,17 +99,16 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
 
   let ext: Awaited<ReturnType<typeof extraerEvidencia>>;
   try {
-    ext = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis, [cv.nombreCandidato]);
+    ext = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis);
   } catch (error) {
     if (error instanceof ErrorApiAnalizador) throw new ErrorNegocio(`${error.motivo} Usa «Reintentar».`);
     throw error;
   }
-  const { extraccion, proveedor, anonimizado } = ext;
+  const { extraccion, proveedor } = ext;
   const modelo = `${proveedor}:${ext.modelo}`;
 
   const textoOcultoOmitido = Number(cv.textoExtraido.match(/\[TEXTO OCULTO OMITIDO: (\d+) caracteres/)?.[1] ?? 0);
-  // Las citas se verifican contra el texto exacto que vio el proveedor que respondió.
-  const verificado = verificarExtraccion(extraccion, evaluada, ext.textoVisto, fechaAnalisis);
+  const verificado = verificarExtraccion(extraccion, evaluada, textoOculto, fechaAnalisis);
   const alertasCodigo = [
     ...(textoOcultoOmitido ? [`El PDF tenía ${textoOcultoOmitido} caracteres en letra diminuta (posible texto oculto); se omitieron.`] : []),
     ...(omitidos ? [`Se ignoraron ${omitidos} renglón(es) con texto que parece una instrucción al sistema.`] : []),
@@ -134,7 +119,6 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     textoOcultoOmitido,
     alertas: [...alertasCodigo, ...(verificado.alertas ?? [])],
     proveedor,
-    anonimizado,
   };
   const calificacion = calificar(resultado);
 

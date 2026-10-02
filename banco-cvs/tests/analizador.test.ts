@@ -200,14 +200,14 @@ describe("Paso 2 — Extracción con un solo reintento", () => {
   });
 
   it("reintenta una vez si el JSON es inválido", async () => {
-    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m", proveedor: "groq", anonimizado: false }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m", proveedor: "groq", anonimizado: false });
+    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m", proveedor: "groq" });
     const r = await extraerEvidencia(VACANTE, "texto", new Date());
     expect(r.modelo).toBe("m");
     expect(api).toHaveBeenCalledTimes(2);
   });
 
   it("si el JSON vuelve a fallar (o no cumple el esquema), lanza error", async () => {
-    api.mockResolvedValueOnce({ json: "{}", modelo: "m", proveedor: "groq", anonimizado: false }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m", proveedor: "groq", anonimizado: false });
+    api.mockResolvedValueOnce({ json: "{}", modelo: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m", proveedor: "groq" });
     await expect(extraerEvidencia(VACANTE, "texto", new Date())).rejects.toThrow("no tuvo el formato esperado");
     expect(api).toHaveBeenCalledTimes(2);
   });
@@ -259,7 +259,6 @@ describe("Análisis completo (API simulada)", () => {
       })),
       modelo: "openai/gpt-oss-120b",
       proveedor: "groq",
-      anonimizado: false,
     });
     for (const u of [usuario, admin]) {
       await simularSesion(u);
@@ -277,7 +276,7 @@ describe("Análisis completo (API simulada)", () => {
       expect(JSON.parse(a.vacanteSnapshot).obligatorios).toHaveLength(2);
     }
     // Lo que se envió a la API no contiene datos de contacto ni datos protegidos.
-    const enviado = api.mock.calls[0][1](false);
+    const enviado = api.mock.calls[0][1];
     for (const dato of ["laura.ficticia@", "1234 5678", "GODE561231", "linkedin.com", "soltera", "27 años", "Calle Ficticia"]) {
       expect(enviado).not.toContain(dato);
     }

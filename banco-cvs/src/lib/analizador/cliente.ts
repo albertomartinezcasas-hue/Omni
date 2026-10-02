@@ -37,7 +37,7 @@ function esquemaEstricto(nodo: unknown): unknown {
 
 export const ESQUEMA_JSON = esquemaEstricto(z.toJSONSchema(esquemaExtraccion)) as Record<string, unknown>;
 
-export type RespuestaIA = { json: string; modelo: string; proveedor: string; anonimizado: boolean };
+export type RespuestaIA = { json: string; modelo: string; proveedor: string };
 
 /** Errores por los que se pasa al siguiente proveedor: 429, 5xx, tiempo agotado o sin conexión. */
 function esRecuperable(error: unknown) {
@@ -76,13 +76,11 @@ async function llamar(p: ProveedorIA, sistema: string, usuario: string, tiempoMs
 
 /**
  * Pide la extracción a los proveedores en orden de respaldo. Ante 429, 5xx, tiempo agotado o sin conexión
- * pasa al siguiente. `prepararMensaje(anonimizar)` arma el mensaje con el texto adecuado para cada proveedor
- * (o devuelve null si el CV no se pudo anonimizar: ese proveedor se omite).
- * El log registra qué proveedor respondió o falló, nunca el contenido del CV ni del prompt.
+ * pasa al siguiente. El log registra qué proveedor respondió o falló, nunca el contenido del CV ni del prompt.
  */
 export async function solicitarExtraccion(
   sistema: string,
-  prepararMensaje: (anonimizar: boolean) => string | null,
+  mensaje: string,
   tiempoMs: number = TIEMPO_MAXIMO_MS,
 ): Promise<RespuestaIA> {
   const proveedores = proveedoresConfigurados();
@@ -95,22 +93,16 @@ export async function solicitarExtraccion(
   for (const p of proveedores) {
     const restante = limite - Date.now();
     if (restante < 3_000) break;
-    const mensaje = prepararMensaje(p.anonimizar);
-    if (mensaje === null) {
-      // No se pudo anonimizar con certeza (no se identificó el nombre): el CV no se envía a este proveedor.
-      console.warn(`[analizador] ${p.nombre} se omite: el CV no se pudo anonimizar`);
-      continue;
-    }
     const inicio = Date.now();
     try {
       const r = await llamar(p, sistema, mensaje, restante);
       console.info(`[analizador] Respondió ${p.nombre} (${r.modelo}) en ${Date.now() - inicio} ms`);
-      return { ...r, proveedor: p.nombre, anonimizado: p.anonimizar };
+      return { ...r, proveedor: p.nombre };
     } catch (error) {
       // La generación no cumplió el esquema estricto: se trata como JSON inválido (usa el único reintento).
       if (error instanceof OpenAI.BadRequestError && JSON.stringify(error.error ?? {}).includes("json_validate_failed")) {
         console.warn(`[analizador] ${p.nombre}: la respuesta no cumplió el esquema`);
-        return { json: "", modelo: p.modelo, proveedor: p.nombre, anonimizado: p.anonimizar };
+        return { json: "", modelo: p.modelo, proveedor: p.nombre };
       }
       if (error instanceof ErrorApiAnalizador) throw error;
       console.warn(`[analizador] ${p.nombre} falló (${describir(error)})${esRecuperable(error) ? "; se intenta el siguiente" : ""}`);

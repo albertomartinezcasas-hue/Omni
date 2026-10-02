@@ -139,7 +139,6 @@ export type ResultadoVerificado = {
   preguntas: string[];
   /** Alertas del código (manipulación, fechas incompletas, puestos descartados) y de la IA. */
   alertas?: string[];
-  /** Proveedor de IA que respondió y si recibió el CV anonimizado. */
+  /** Proveedor de IA que respondió. */
   proveedor?: string;
-  anonimizado?: boolean;
 };

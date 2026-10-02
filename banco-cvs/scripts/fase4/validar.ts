@@ -66,7 +66,7 @@ for (const cv of CVS_FASE4) {
     const r = JSON.parse(a.resultado);
     obtenido = calcularCategoria(a.veredicto, a.puntaje, umbrales);
     const niveles = r.requisitos.map((q: { id: string; nivel: number }) => `${q.id}:${q.nivel}`).join(" ");
-    detalle = `[${a.modelo}${r.anonimizado ? ", anonimizado" : ""}] ${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}${(r.experiencia.descartes ?? []).map((d: { puesto: string; motivo: string; cita: string }) => ` · descartado «${d.puesto}»: ${d.motivo} (cita: «${d.cita}»)`).join("")}${r.textoOcultoOmitido ? ` · texto oculto omitido: ${r.textoOcultoOmitido} caracteres` : ""}`;
+    detalle = `[${a.modelo}] ${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}${(r.experiencia.descartes ?? []).map((d: { puesto: string; motivo: string; cita: string }) => ` · descartado «${d.puesto}»: ${d.motivo} (cita: «${d.cita}»)`).join("")}${r.textoOcultoOmitido ? ` · texto oculto omitido: ${r.textoOcultoOmitido} caracteres` : ""}`;
   } catch (error) {
     detalle = error instanceof Error ? error.message : String(error);
   }

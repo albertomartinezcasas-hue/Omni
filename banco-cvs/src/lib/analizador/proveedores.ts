@@ -6,7 +6,6 @@
  *   N_API_KEY      clave (si falta, el proveedor se salta)
  *   N_BASE_URL     URL base compatible con OpenAI
  *   N_MODEL        modelo
- *   N_ANONIMIZAR   "true" para quitar además nombre, dirección e identificaciones antes de enviar
  *   N_FORMATO_JSON "json_schema" (por defecto) o "json_object"
  *
  * Agregar un proveedor no requiere tocar código; p. ej. OmniRoute:
@@ -20,15 +19,13 @@ export type ProveedorIA = {
   baseURL: string;
   modelo: string;
   apiKey: string;
-  anonimizar: boolean;
   formato: FormatoJson;
 };
 
 /** Valores por defecto de proveedores conocidos (la clave nunca tiene valor por defecto). */
 const CONOCIDOS: Record<string, Partial<Omit<ProveedorIA, "nombre" | "apiKey">>> = {
   groq: { baseURL: "https://api.groq.com/openai/v1", modelo: "openai/gpt-oss-120b" },
-  // El plan gratuito de Gemini puede usar los datos para entrenar: se anonimiza siempre por defecto.
-  gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", modelo: "gemini-2.5-flash", anonimizar: true },
+  gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", modelo: "gemini-2.5-flash" },
 };
 
 const ORDEN_POR_DEFECTO = "groq,gemini";
@@ -66,15 +63,12 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
       console.error(`[analizador] ${nombre} se omite: ${nombre.toUpperCase()}_BASE_URL debe usar https://`);
       continue;
     }
-    const anonimizarVar = variable(env, nombre, "ANONIMIZAR");
     const formatoVar = variable(env, nombre, "FORMATO_JSON");
     lista.push({
       nombre,
       baseURL,
       modelo,
       apiKey,
-      // Un proveedor que anonimiza por defecto (Gemini) no se puede desactivar por configuración.
-      anonimizar: base.anonimizar === true || anonimizarVar?.toLowerCase() === "true",
       formato: formatoVar === "json_object" ? "json_object" : "json_schema",
     });
   }
