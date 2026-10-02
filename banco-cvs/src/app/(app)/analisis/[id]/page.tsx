@@ -99,7 +99,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           <div className="space-y-2">
             <h1 id="resumen" className="text-2xl font-bold text-slate-900 break-words">{candidato}</h1>
             <div className="flex flex-wrap items-center gap-3">
-              <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} grande />
+              <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} siSeConfirma={a.categoria.ajustadaPor ? null : a.categoria.siSeConfirma} grande />
               <span className="text-sm font-semibold text-slate-800">
                 Veredicto: {a.veredicto === "VIABLE" ? "VIABLE" : a.veredicto === "REVISION" ? "PENDIENTE DE REVISIÓN" : "NO VIABLE"}
               </span>
@@ -116,7 +116,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           <p className="text-sm text-slate-800">
             <span className="font-semibold">Ajustada por {a.categoria.ajustadaPor}</span> el{" "}
             {formatearFecha(a.categoria.ajuste.creadoEn)}: «{a.categoria.ajuste.comentario}». Categoría calculada:{" "}
-            <BadgeCategoria categoria={a.categoria.calculada} causa={a.categoria.causaNoViable} />
+            <BadgeCategoria categoria={a.categoria.calculada} causa={a.categoria.causaNoViable} siSeConfirma={a.categoria.siSeConfirma} />
           </p>
         )}
 

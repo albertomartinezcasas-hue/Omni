@@ -46,11 +46,6 @@ export type Calificacion = {
   pesos: { O: number; D: number; E: number; F: number };
 };
 
-/** Los modelos "lite" son menos precisos: un requisito que no encontraron se confirma con una persona. */
-export function esModeloLigero(modelo: string) {
-  return /lite/i.test(modelo);
-}
-
 /**
  * `posibleManipulacion`: el CV traía instrucciones o texto oculto. Entonces una cita que no coincide puede venir de una
  * inyección y no ablanda el veredicto: cuenta como causa firme.

@@ -118,7 +118,7 @@ export default async function PaginaRepositorio({ searchParams }: { searchParams
                   <td className={celda}>
                     {cv.ultimo ? (
                       <Link href={`/analisis/${cv.ultimo.id}`} className="flex flex-wrap items-center gap-2 hover:underline">
-                        <BadgeCategoria categoria={cv.ultimo.categoria.final} causa={cv.ultimo.categoria.ajustadaPor ? null : cv.ultimo.categoria.causaNoViable} />
+                        <BadgeCategoria categoria={cv.ultimo.categoria.final} causa={cv.ultimo.categoria.ajustadaPor ? null : cv.ultimo.categoria.causaNoViable} siSeConfirma={cv.ultimo.categoria.ajustadaPor ? null : cv.ultimo.categoria.siSeConfirma} />
                         <span className="font-semibold">{cv.ultimo.puntaje}</span>
                         {!f.vacante && <span className="text-xs text-slate-700">{cv.ultimo.vacante}</span>}
                       </Link>

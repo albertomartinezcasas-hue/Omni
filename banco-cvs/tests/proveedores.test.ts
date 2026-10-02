@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { proveedoresConfigurados } from "@/lib/analizador/proveedores";
+import { esModeloLigero, proveedoresConfigurados } from "@/lib/analizador/proveedores";
 
 // SDK de OpenAI simulado: el comportamiento depende de "baseURL|modelo" o, si no está, de la baseURL.
 const comportamiento = new Map<string, () => unknown>();
@@ -194,5 +194,20 @@ describe("Respaldo entre proveedores", () => {
     delete process.env.GEMINI_API_KEY;
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(solicitarExtraccion("s", "cv")).rejects.toThrow("El análisis automático no está disponible por ahora. Avisa a un Admin.");
+  });
+});
+
+describe("Modelos ligeros", () => {
+  it("por defecto, los que contienen «lite»; acepta el formato guardado «proveedor:modelo»", () => {
+    expect(esModeloLigero("gemini:gemini-3.5-flash-lite", {})).toBe(true);
+    expect(esModeloLigero("models/gemini-flash-lite-latest", {})).toBe(true);
+    expect(esModeloLigero("gemini:gemini-3.7-flash", {})).toBe(false);
+    expect(esModeloLigero("groq:openai/gpt-oss-120b", {})).toBe(false);
+  });
+
+  it("IA_MODELOS_LIGEROS define la lista explícita", () => {
+    const env = { IA_MODELOS_LIGEROS: "gemini-3.6-flash, gemma-4-26b-a4b-it" };
+    expect(esModeloLigero("gemini:gemini-3.6-flash", env)).toBe(true);
+    expect(esModeloLigero("gemini:gemini-3.5-flash-lite", env)).toBe(false);
   });
 });

@@ -8,6 +8,9 @@
  *   N_MODEL        modelo, o varios separados por comas: se prueban en orden (el cupo gratuito es por modelo)
  *   N_FORMATO_JSON "json_schema" (por defecto) o "json_object"
  *
+ * IA_MODELOS_LIGEROS=modelo1,modelo2 → modelos menos precisos: un requisito que no encontraron deja el análisis
+ * «Pendiente de revisión». Si no se define, se consideran ligeros los que contienen "lite" en el nombre.
+ *
  * Agregar un proveedor no requiere tocar código; p. ej. OmniRoute:
  *   IA_PROVEEDORES=openai,groq,gemini  OPENAI_BASE_URL=http://localhost:20128/v1  OPENAI_MODEL=cvs  OPENAI_API_KEY=...
  */
@@ -95,4 +98,12 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
     }
   }
   return lista;
+}
+
+/** Los modelos ligeros son menos precisos: un requisito que no encontraron se confirma con una persona. */
+export function esModeloLigero(modelo: string, env: Record<string, string | undefined> = process.env) {
+  // El modelo puede venir como "proveedor:modelo" (así se guarda en el análisis) o con prefijo "models/".
+  const nombre = modelo.split(":").pop()!.replace(/^models\//, "").trim().toLowerCase();
+  const lista = env.IA_MODELOS_LIGEROS?.split(",").map((m) => m.trim().toLowerCase()).filter(Boolean);
+  return lista?.length ? lista.includes(nombre) : /lite/.test(nombre);
 }

@@ -12,13 +12,21 @@ const ESTILO: Record<Categoria, string> = {
 export function BadgeCategoria({
   categoria,
   causa,
+  siSeConfirma,
   grande = false,
 }: {
   categoria: Categoria;
   causa?: "REQUISITO" | "PUNTAJE" | null;
+  /** Solo para «Pendiente de revisión»: categoría que tendría si se confirma la evidencia. */
+  siSeConfirma?: Categoria | null;
   grande?: boolean;
 }) {
-  const sufijo = categoria === "NO_VIABLE" && causa ? (causa === "REQUISITO" ? " (requisito)" : " (puntaje)") : "";
+  const sufijo =
+    categoria === "NO_VIABLE" && causa
+      ? causa === "REQUISITO" ? " (requisito)" : " (puntaje)"
+      : categoria === "REVISION" && siSeConfirma
+        ? ` · si se confirma: ${ETIQUETA_CATEGORIA[siSeConfirma]}`
+        : "";
   return (
     <span
       className={`inline-flex items-center rounded-full font-semibold ring-1 ring-inset ${ESTILO[categoria]} ${

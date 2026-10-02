@@ -1,4 +1,5 @@
 import { categoriaMostrada, type AjusteVigente } from "@/lib/analizador/categoria";
+import { esModeloLigero } from "@/lib/analizador/proveedores";
 import type { ResultadoVerificado, VacanteEvaluada } from "@/lib/analizador/tipos";
 import { CATEGORIAS, type Categoria } from "@/lib/catalogos";
 import { db } from "@/lib/db";
@@ -93,9 +94,14 @@ export async function candidatosDeVacante(vacanteId: string, versionActual: numb
     });
   }
   filas.sort((x, y) => y.puntaje - x.puntaje);
+  // Pendientes de revisión hechos con un modelo ligero (p. ej. por saturación de los modelos completos).
+  const modeloPorAnalisis = new Map(analisis.map((a) => [a.id, a.modelo]));
+  const pendientesLigeros = filas.filter(
+    (f) => f.categoria.final === "REVISION" && esModeloLigero(modeloPorAnalisis.get(f.analisisId) ?? ""),
+  ).length;
   const grupos = Object.fromEntries(CATEGORIAS.map((c) => [c, [] as FilaCandidato[]])) as Record<Categoria, FilaCandidato[]>;
   for (const f of filas) grupos[f.categoria.final].push(f);
-  return { grupos, total: filas.length, umbrales };
+  return { grupos, total: filas.length, umbrales, pendientesLigeros };
 }
 
 /** Detalle completo de un análisis, con su vacante (copia y estado actual) y ajustes. */

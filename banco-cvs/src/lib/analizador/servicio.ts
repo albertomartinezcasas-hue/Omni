@@ -7,7 +7,8 @@ import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cli
 import { conLimiteDeAnalisis } from "./limite";
 import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
-import { calificar, esModeloLigero } from "./puntaje";
+import { esModeloLigero } from "./proveedores";
+import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
 import { neutralizarInstrucciones, verificarExtraccion } from "./verificar";
 

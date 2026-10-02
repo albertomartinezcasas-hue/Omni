@@ -75,7 +75,7 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
                       {a.vacante.estado === "ARCHIVADA" && <span className="block text-xs text-slate-600">Vacante archivada</span>}
                     </td>
                     <td className={celda}>
-                      <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} />
+                      <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} siSeConfirma={a.categoria.ajustadaPor ? null : a.categoria.siSeConfirma} />
                       {a.desactualizado && <span className="ml-2"><BadgeDesactualizado /></span>}
                       {a.posibleManipulacion && <span className="mt-1 block"><BadgeManipulacion /></span>}
                     </td>

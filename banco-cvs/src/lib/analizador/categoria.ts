@@ -29,6 +29,8 @@ export function categoriaMostrada(
   return {
     calculada,
     causaNoViable,
+    /** Para «Pendiente de revisión»: la categoría que tendría con su puntaje si se confirma la evidencia. */
+    siSeConfirma: calculada === "REVISION" ? calcularCategoria("VIABLE", analisis.puntaje, umbrales) : null,
     final: (ajuste?.categoria as Categoria | undefined) ?? calculada,
     ajustadaPor: ajuste?.autor ?? null,
     ajuste,

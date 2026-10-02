@@ -176,6 +176,12 @@ describe("Pendiente de revisión (en lugar de NO VIABLE cuando una persona debe 
     expect(calificar(r, { posibleManipulacion: true }).veredicto).toBe("NO_VIABLE");
   });
 
+  it("muestra qué categoría tendría si se confirma la evidencia", () => {
+    expect(categoriaMostrada({ veredicto: "REVISION", puntaje: 75 }, UMBRALES_POR_DEFECTO, null).siSeConfirma).toBe("BUENO");
+    expect(categoriaMostrada({ veredicto: "REVISION", puntaje: 30 }, UMBRALES_POR_DEFECTO, null).siSeConfirma).toBe("NO_VIABLE");
+    expect(categoriaMostrada({ veredicto: "VIABLE", puntaje: 75 }, UMBRALES_POR_DEFECTO, null).siSeConfirma).toBeNull();
+  });
+
   it("el puntaje bajo no convierte una revisión en NO VIABLE", () => {
     expect(calcularCategoria("REVISION", 10, UMBRALES_POR_DEFECTO)).toBe("REVISION");
   });

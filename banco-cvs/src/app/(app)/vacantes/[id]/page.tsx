@@ -23,7 +23,7 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
   const vacante = await consultarVacante(id);
   if (!vacante) notFound();
   const archivada = vacante.estado === "ARCHIVADA";
-  const { grupos, total } = await consultarCandidatos(vacante.id, vacante.version);
+  const { grupos, total, pendientesLigeros } = await consultarCandidatos(vacante.id, vacante.version);
   const esAdmin = usuario.rol === "ADMIN";
 
   return (
@@ -60,6 +60,15 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
         <h2 id="candidatos" className="text-lg font-bold text-slate-900">
           Candidatos {total > 0 && <span className="font-normal text-slate-700">({total}, ordenados por puntaje)</span>}
         </h2>
+        {pendientesLigeros > 0 && (
+          <Aviso tipo="info">
+            {pendientesLigeros === 1
+              ? "1 análisis quedó «Pendiente de revisión» porque"
+              : `${pendientesLigeros} análisis quedaron «Pendiente de revisión» porque`}{" "}
+            se hicieron con un modelo ligero (los modelos completos estaban saturados). Re-analízalos más tarde o
+            confirma la evidencia en el CV.
+          </Aviso>
+        )}
         {total === 0 ? (
           <div className={`${tarjeta} space-y-3 text-center text-sm text-slate-700`}>
             <p>Aún no hay CVs analizados para esta vacante.</p>

@@ -120,7 +120,7 @@ export function TablaCandidatos({
                       </td>
                       <td className={`${celda} text-right text-lg font-bold`}>{f.puntaje}</td>
                       <td className={celda}>
-                        <BadgeCategoria categoria={f.categoria.final} causa={f.categoria.ajustadaPor ? null : f.categoria.causaNoViable} />
+                        <BadgeCategoria categoria={f.categoria.final} causa={f.categoria.ajustadaPor ? null : f.categoria.causaNoViable} siSeConfirma={f.categoria.ajustadaPor ? null : f.categoria.siSeConfirma} />
                         {f.categoria.ajustadaPor && f.categoria.ajuste && (
                           <span className="mt-1 block text-xs text-slate-700" title={f.categoria.ajuste.comentario}>
                             Ajustada por {f.categoria.ajustadaPor} · calculada: {ETIQUETA_CATEGORIA[f.categoria.calculada]}

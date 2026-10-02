@@ -1,3 +1,4 @@
+import { Aviso } from "@/components/Aviso";
 import { CargaCvs } from "@/components/CargaCvs";
 import { titulo } from "@/components/estilos";
 import { consultarVacantes } from "@/lib/consultas";
@@ -13,6 +14,10 @@ export default async function PaginaSubir({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <h1 className={titulo}>Subir y analizar CVs</h1>
+      <Aviso tipo="info">
+        Sube solo CVs de candidatos que recibieron el aviso de privacidad. El análisis automático envía el texto del CV
+        (sin correo, teléfono ni otros datos de contacto) a servicios de IA externos.
+      </Aviso>
       <CargaCvs vacantes={vacantes} vacanteInicial={vacantes.some((v) => v.id === vacante) ? vacante! : null} />
     </div>
   );
