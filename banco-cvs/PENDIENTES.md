@@ -251,3 +251,18 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - **Media**: REVISION oculta el puntaje. Propuesta: mostrar «Pendiente (si se confirma: Bueno)» y ordenar ese grupo por puntaje.
 - **Media**: si hay saturación y se cae a modelos lite, gran parte del lote queda pendiente. Propuesta: un aviso en la vacante con el número de análisis lite pendientes.
 - **Baja**: la detección de modelos lite depende de que el nombre contenga "lite". Conviene una lista explícita configurable.
+
+### Ronda sobre «si se confirma», el aviso de modelos ligeros y el aviso de privacidad
+
+- **ux-ui-reviewer: APROBADO CON AJUSTES**
+  - Corregido (Alta): la categoría «si se confirma» va en un renglón aparte, fuera del badge, y la tabla tiene un ancho mínimo con desplazamiento horizontal en móvil.
+  - Corregido (Media): el grupo «Pendiente de revisión» va primero, con texto de ayuda.
+  - Corregido (Media): el aviso de la vacante usa singular o plural según el caso y ya no usa jerga técnica.
+  - Corregido (Baja): ayuda con `aria-describedby` en el ajuste manual.
+  - **Baja**: el recordatorio de la página de subida no enlaza al aviso de privacidad, porque todavía no hay una URL publicada.
+- **experto-reclutamiento: APROBADO CON AJUSTES**
+  - Corregido (Alta): el borrador del aviso afirmaba que se retiran todos los datos protegidos. Ahora dice que el retiro es automatizado y no es infalible, y que el nombre y la trayectoria sí se envían.
+  - Corregido (Alta): el borrador decía que el sistema nunca descarta solo. Ahora reconoce que el NO VIABLE firme es automático y propone revisar por procedimiento cada rechazo.
+  - Corregido (Media): se agregaron al aviso el medio para limitar el uso o la divulgación de los datos y las notas sobre datos sensibles y conservación.
+  - **Media (requiere aprobación, cambia el esquema)**: un campo `sinAnalisisIA` en el CV para registrar que el candidato se opuso al análisis con IA y bloquearlo.
+  - **Media**: la eliminación automática al terminar el plazo de conservación.

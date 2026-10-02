@@ -21,13 +21,15 @@ export function BadgeCategoria({
   siSeConfirma?: Categoria | null;
   grande?: boolean;
 }) {
-  const sufijo =
-    categoria === "NO_VIABLE" && causa
-      ? causa === "REQUISITO" ? " (requisito)" : " (puntaje)"
-      : categoria === "REVISION" && siSeConfirma
-        ? ` · si se confirma: ${ETIQUETA_CATEGORIA[siSeConfirma]}`
-        : "";
+  const sufijo = categoria === "NO_VIABLE" && causa ? (causa === "REQUISITO" ? " (requisito)" : " (puntaje)") : "";
+  // La categoría que tendría va en su propio renglón: el badge se mantiene corto (tablas en móvil).
+  const confirmacion = categoria === "REVISION" && siSeConfirma && (
+    <span className="mt-1 block text-xs text-slate-700">
+      {ETIQUETA_CATEGORIA[siSeConfirma]} si se confirma la evidencia
+    </span>
+  );
   return (
+    <>
     <span
       className={`inline-flex items-center rounded-full font-semibold ring-1 ring-inset ${ESTILO[categoria]} ${
         grande ? "px-4 py-1.5 text-base" : "px-2.5 py-0.5 text-xs"
@@ -36,6 +38,8 @@ export function BadgeCategoria({
       {ETIQUETA_CATEGORIA[categoria]}
       {sufijo}
     </span>
+    {confirmacion}
+    </>
   );
 }
 

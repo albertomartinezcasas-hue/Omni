@@ -39,7 +39,8 @@ export const ETIQUETA_MODALIDAD: Record<Modalidad, string> = {
   REMOTO: "Remoto",
 };
 
-export const CATEGORIAS = ["EXCELENTE", "BUENO", "PASABLE", "REVISION", "NO_VIABLE"] as const;
+// «Pendiente de revisión» va primero: son los candidatos que requieren una decisión del reclutador.
+export const CATEGORIAS = ["REVISION", "EXCELENTE", "BUENO", "PASABLE", "NO_VIABLE"] as const;
 export type Categoria = (typeof CATEGORIAS)[number];
 /** Al ajustar manualmente se decide una categoría final: «Pendiente de revisión» no es una opción. */
 export const CATEGORIAS_AJUSTE = ["EXCELENTE", "BUENO", "PASABLE", "NO_VIABLE"] as const;

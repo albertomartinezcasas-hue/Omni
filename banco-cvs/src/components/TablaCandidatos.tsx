@@ -74,10 +74,15 @@ export function TablaCandidatos({
               <BadgeCategoria categoria={categoria} />
               <span>{filas.length} {filas.length === 1 ? "candidato" : "candidatos"}</span>
             </h3>
+            {categoria === "REVISION" && filas.length > 0 && (
+              <p className="px-4 pt-1 text-sm text-slate-700">
+                Requieren tu confirmación: revisa la evidencia en el CV y elige la categoría final con «Ajustar categoría».
+              </p>
+            )}
             {filas.length === 0 ? (
               <p className="px-4 pb-4 pt-2 text-sm text-slate-600">Sin candidatos en {ETIQUETA_CATEGORIA[categoria]}.</p>
             ) : (
-              <table className={`${tabla} mt-2 table-fixed`}>
+              <table className={`${tabla} mt-2 min-w-[56rem] table-fixed`}>
                 {/* Mismos anchos en todos los grupos para comparar de un vistazo. */}
                 <colgroup>
                   <col className="w-[24%]" />

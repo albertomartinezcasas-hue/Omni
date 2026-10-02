@@ -63,10 +63,8 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
         {pendientesLigeros > 0 && (
           <Aviso tipo="info">
             {pendientesLigeros === 1
-              ? "1 análisis quedó «Pendiente de revisión» porque"
-              : `${pendientesLigeros} análisis quedaron «Pendiente de revisión» porque`}{" "}
-            se hicieron con un modelo ligero (los modelos completos estaban saturados). Re-analízalos más tarde o
-            confirma la evidencia en el CV.
+              ? "1 análisis quedó «Pendiente de revisión» porque se hizo con una versión rápida de la IA, menos precisa (la principal estaba ocupada). Vuelve a analizarlo más tarde o revisa el CV."
+              : `${pendientesLigeros} análisis quedaron «Pendiente de revisión» porque se hicieron con una versión rápida de la IA, menos precisa (la principal estaba ocupada). Vuelve a analizarlos más tarde o revisa los CVs.`}
           </Aviso>
         )}
         {total === 0 ? (

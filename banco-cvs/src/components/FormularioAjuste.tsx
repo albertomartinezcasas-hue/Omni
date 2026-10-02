@@ -28,7 +28,15 @@ export function FormularioAjuste({ analisisId, actual }: { analisisId: string; a
       {estado?.ok && <Aviso tipo="exito">Categoría ajustada.</Aviso>}
       <div>
         <label htmlFor="categoria" className={etiqueta}>Nueva categoría</label>
-        <select id="categoria" name="categoria" defaultValue={actual === "REVISION" ? "" : actual} required className={campo}>
+        <p id="ayuda-categoria" className="mb-1 text-xs text-slate-700">Elige la categoría definitiva después de revisar el CV.</p>
+        <select
+          id="categoria"
+          name="categoria"
+          defaultValue={actual === "REVISION" ? "" : actual}
+          required
+          aria-describedby="ayuda-categoria"
+          className={campo}
+        >
           {actual === "REVISION" && <option value="" disabled>Elige la categoría final…</option>}
           {CATEGORIAS_AJUSTE.map((c) => (
             <option key={c} value={c}>{ETIQUETA_CATEGORIA[c]}</option>

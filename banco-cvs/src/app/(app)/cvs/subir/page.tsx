@@ -15,8 +15,9 @@ export default async function PaginaSubir({ searchParams }: { searchParams: Prom
     <div className="space-y-6">
       <h1 className={titulo}>Subir y analizar CVs</h1>
       <Aviso tipo="info">
-        Sube solo CVs de candidatos que recibieron el aviso de privacidad. El análisis automático envía el texto del CV
-        (sin correo, teléfono ni otros datos de contacto) a servicios de IA externos.
+        Sube solo CVs de candidatos que recibieron el aviso de privacidad de la empresa. El análisis automático envía el
+        texto del CV, incluido el nombre, a servicios de IA externos; antes se retiran el correo, los teléfonos y los
+        identificadores oficiales. Si el candidato se opuso al análisis con IA, súbelo sin analizar.
       </Aviso>
       <CargaCvs vacantes={vacantes} vacanteInicial={vacantes.some((v) => v.id === vacante) ? vacante! : null} />
     </div>
