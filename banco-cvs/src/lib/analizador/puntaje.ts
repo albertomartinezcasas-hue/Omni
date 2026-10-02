@@ -51,7 +51,14 @@ export function esModeloLigero(modelo: string) {
   return /lite/i.test(modelo);
 }
 
-export function calificar(r: ResultadoVerificado, opciones: { modeloLigero?: boolean } = {}): Calificacion {
+/**
+ * `posibleManipulacion`: el CV traía instrucciones o texto oculto. Entonces una cita que no coincide puede venir de una
+ * inyección y no ablanda el veredicto: cuenta como causa firme.
+ */
+export function calificar(
+  r: ResultadoVerificado,
+  opciones: { modeloLigero?: boolean; posibleManipulacion?: boolean } = {},
+): Calificacion {
   const obligatorios = r.requisitos.filter((q) => q.tipo === "OBLIGATORIO");
   const deseables = r.requisitos.filter((q) => q.tipo === "DESEABLE");
 
@@ -77,7 +84,10 @@ export function calificar(r: ResultadoVerificado, opciones: { modeloLigero?: boo
   const motivosNoViable = obligatorios
     .filter((q) => q.nivel === 0)
     .map((q) => {
-      if (q.citaNoVerificada) return `No se encontró evidencia de: ${q.texto} (la cita del análisis no coincide con el CV; revisar manualmente)`;
+      if (q.citaNoVerificada) {
+        if (opciones.posibleManipulacion) hayCausaFirme = true;
+        return `No se encontró evidencia de: ${q.texto} (la cita del análisis no coincide con el CV; revisar manualmente)`;
+      }
       if (opciones.modeloLigero) return `No se encontró evidencia de: ${q.texto} (analizado con un modelo ligero; confirmar en el CV)`;
       hayCausaFirme = true;
       return `No se encontró evidencia de: ${q.texto}`;

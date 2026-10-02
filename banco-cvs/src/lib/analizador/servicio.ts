@@ -124,7 +124,10 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     alertas: [...alertasCodigo, ...(verificado.alertas ?? [])],
     proveedor,
   };
-  const calificacion = calificar(resultado, { modeloLigero: esModeloLigero(ext.modelo) });
+  const calificacion = calificar(resultado, {
+    modeloLigero: esModeloLigero(ext.modelo),
+    posibleManipulacion: omitidos > 0 || textoOcultoOmitido > 0,
+  });
 
   return db.$transaction(async (tx) => {
     const analisis = await tx.analisis.create({

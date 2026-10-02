@@ -99,7 +99,7 @@ model Analisis {
   creadoPorId     String
   creadoPor       Usuario           @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
   creadoEn        DateTime          @default(now())
-  veredicto       String // VIABLE | NO_VIABLE
+  veredicto       String // VIABLE | NO_VIABLE | REVISION
   motivosNoViable String // JSON string[]
   puntaje         Int
   puntajeO        Float
@@ -117,7 +117,7 @@ model AjusteCategoria {
   id         String   @id @default(cuid())
   analisisId String
   analisis   Analisis @relation(fields: [analisisId], references: [id], onDelete: Cascade)
-  categoria  String // EXCELENTE | BUENO | PASABLE | NO_VIABLE
+  categoria  String // EXCELENTE | BUENO | PASABLE | NO_VIABLE (el ajuste manual no usa REVISION)
   comentario String
   autorId    String
   autor      Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)

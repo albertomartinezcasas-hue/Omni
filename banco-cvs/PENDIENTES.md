@@ -243,3 +243,11 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - los pesos están escritos a mano en la pantalla;
   - los puestos descartados aparecen dos veces;
   - `cualidadesDescartadas` no se muestra.
+
+#### experto-reclutamiento, ronda 2 sobre «Pendiente de revisión»: APROBADO
+
+- Corregido (Media): si el CV traía instrucciones o texto oculto, una cita que no coincide cuenta como causa firme (NO VIABLE). Así una inyección no puede ablandar el veredicto a revisión.
+- Corregido (Baja): los comentarios de `schema.prisma` incluyen REVISION. Solo cambian comentarios, no hay migración.
+- **Media**: REVISION oculta el puntaje. Propuesta: mostrar «Pendiente (si se confirma: Bueno)» y ordenar ese grupo por puntaje.
+- **Media**: si hay saturación y se cae a modelos lite, gran parte del lote queda pendiente. Propuesta: un aviso en la vacante con el número de análisis lite pendientes.
+- **Baja**: la detección de modelos lite depende de que el nombre contenga "lite". Conviene una lista explícita configurable.

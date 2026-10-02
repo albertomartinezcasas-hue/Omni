@@ -170,6 +170,12 @@ describe("Pendiente de revisión (en lugar de NO VIABLE cuando una persona debe 
     expect(calificar(r).veredicto).toBe("NO_VIABLE");
   });
 
+  it("con señales de manipulación, una cita que no coincide es causa firme (NO VIABLE)", () => {
+    const r = resultado({ obligatorios: [2, 0], anios: 5, minimo: 2 });
+    r.requisitos[1].citaNoVerificada = true;
+    expect(calificar(r, { posibleManipulacion: true }).veredicto).toBe("NO_VIABLE");
+  });
+
   it("el puntaje bajo no convierte una revisión en NO VIABLE", () => {
     expect(calcularCategoria("REVISION", 10, UMBRALES_POR_DEFECTO)).toBe("REVISION");
   });

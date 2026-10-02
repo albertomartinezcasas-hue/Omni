@@ -270,8 +270,8 @@ describe("Análisis completo (API simulada)", () => {
       expect(r.ok).toBe(true);
       if (!r.ok) continue;
       const a = await db.analisis.findUniqueOrThrow({ where: { id: r.datos.id } });
-      // La cita inventada se rechaza y el candidato no se descarta solo: queda pendiente de revisión.
-      expect(a.veredicto).toBe("REVISION");
+      // La cita inventada se rechaza; como el CV traía una instrucción oculta, es causa firme (no se ablanda a revisión).
+      expect(a.veredicto).toBe("NO_VIABLE");
       expect(JSON.parse(a.motivosNoViable)).toEqual([
         "No se encontró evidencia de: Excel avanzado (la cita del análisis no coincide con el CV; revisar manualmente)",
       ]);
