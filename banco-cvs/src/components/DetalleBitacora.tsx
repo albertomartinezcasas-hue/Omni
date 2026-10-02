@@ -26,6 +26,7 @@ const ETIQUETA_CAMPO: Record<string, string> = {
   comentario: "Comentario",
   categoriaCalculada: "Categoría calculada",
   instruccionesOmitidas: "Renglones con instrucciones ignorados",
+  textoOcultoOmitido: "Caracteres en letra diminuta omitidos",
   anterior: "Anterior",
   nuevo: "Nuevo",
 };

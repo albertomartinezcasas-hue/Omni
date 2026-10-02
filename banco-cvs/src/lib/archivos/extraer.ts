@@ -1,15 +1,31 @@
 import mammoth from "mammoth";
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractTextItems, getDocumentProxy } from "unpdf";
 import type { TipoArchivo } from "./firma";
 
 const TIEMPO_MAXIMO_MS = 30_000;
 export const MIN_CARACTERES_LEGIBLES = 200;
+/** Texto de menos de 3 pt no se lee a simple vista: se omite (posible texto oculto para manipular el análisis). */
+const TAMANO_MINIMO_VISIBLE = 3;
+export const MARCA_TEXTO_OCULTO = "[TEXTO OCULTO OMITIDO";
 
 async function extraer(buf: Buffer, tipo: TipoArchivo) {
   if (tipo === "PDF") {
     const pdf = await getDocumentProxy(new Uint8Array(buf));
-    const { text } = await extractText(pdf, { mergePages: true });
-    return text;
+    const { items } = await extractTextItems(pdf);
+    let texto = "";
+    let ocultos = 0;
+    for (const pagina of items) {
+      for (const item of pagina) {
+        if (item.str.trim() && item.fontSize > 0 && item.fontSize < TAMANO_MINIMO_VISIBLE) {
+          ocultos += item.str.length;
+          continue;
+        }
+        texto += item.str + (item.hasEOL ? "\n" : "");
+      }
+      texto += "\n";
+    }
+    if (ocultos > 0) texto += `\n${MARCA_TEXTO_OCULTO}: ${ocultos} caracteres en letra diminuta]`;
+    return texto;
   }
   const { value } = await mammoth.extractRawText({ buffer: buf });
   return value;

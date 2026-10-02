@@ -37,3 +37,11 @@ export function BadgeDesactualizado() {
     </span>
   );
 }
+
+export function BadgeManipulacion() {
+  return (
+    <span className="inline-flex w-fit items-center rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+      ⚠ Posible manipulación del CV
+    </span>
+  );
+}

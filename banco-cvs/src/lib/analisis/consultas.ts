@@ -29,6 +29,7 @@ function resumenClave(r: ResultadoVerificado): FilaCandidato["clave"] {
     minimo: r.experiencia?.minimo ?? 0,
     idiomas: (r.idiomas ?? []).map((i) => ({ idioma: i.idioma, encontrado: i.encontrado })),
     estudios: { encontrado: r.estudios?.encontrado ?? "NO_ESPECIFICADO", estatus: r.estudios?.estatus ?? "NO_ESPECIFICADO" },
+    posibleManipulacion: (r.instruccionesOmitidas ?? 0) > 0 || (r.textoOcultoOmitido ?? 0) > 0,
   };
 }
 
@@ -53,6 +54,8 @@ export type FilaCandidato = {
     minimo: number;
     idiomas: { idioma: string; encontrado: string }[];
     estudios: { encontrado: string; estatus: string };
+    /** El CV traía texto oculto o renglones con instrucciones al sistema. */
+    posibleManipulacion: boolean;
   };
 };
 
@@ -223,6 +226,7 @@ export async function analisisDeCv(cvId: string) {
   });
   return lista.map((a) => ({
     id: a.id,
+    posibleManipulacion: resumenClave(JSON.parse(a.resultado) as ResultadoVerificado).posibleManipulacion,
     vacante: a.vacante,
     puntaje: a.puntaje,
     creadoEn: a.creadoEn,

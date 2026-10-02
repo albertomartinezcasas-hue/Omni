@@ -30,6 +30,9 @@ export const esquemaExtraccion = z.object({
         puesto: z.string().max(150),
         empresa: z.string().max(150),
         tipo: z.enum(TIPOS_PUESTO),
+        /** ¿Aplica al menos un requisito obligatorio o las funciones de la descripción de la vacante? */
+        relevante: z.boolean(),
+        justificacion: z.string().max(300),
         cita: z.string().max(600),
       }),
     )
@@ -82,6 +85,8 @@ export type ResultadoVerificado = {
   nombreCandidato: string | null;
   /** Renglones del CV omitidos por parecer instrucciones al sistema (posible inyección). */
   instruccionesOmitidas?: number;
+  /** Caracteres en letra diminuta omitidos al extraer el PDF (posible texto oculto). */
+  textoOcultoOmitido?: number;
   requisitos: RequisitoEvaluado[];
   experiencia: {
     anios: number;
@@ -98,9 +103,22 @@ export type ResultadoVerificado = {
       anios: number;
       /** La cita no trae meses: se contó de forma conservadora; confirmar en entrevista. */
       fechasSinMes: boolean;
+      justificacion: string;
+      cita: string;
+    }[];
+    /** Puestos verificados que la IA no consideró relevantes: no suman años, pero quedan visibles. */
+    puestosNoRelevantes?: {
+      puesto: string;
+      empresa: string;
+      inicio: string;
+      fin: string;
+      meses: number;
+      justificacion: string;
       cita: string;
     }[];
     puestosDescartados: number;
+    /** Por qué se descartó cada puesto que la IA reportó (para revisar el CV). */
+    descartes?: { puesto: string; empresa: string; motivo: string; cita: string }[];
     fechaAnalisis: string;
   };
   estudios: {

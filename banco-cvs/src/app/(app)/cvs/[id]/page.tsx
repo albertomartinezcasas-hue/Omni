@@ -6,7 +6,7 @@ import { formatearFecha } from "@/components/Fecha";
 import { FormularioNombreCandidato } from "@/components/FormularioNombreCandidato";
 import { ESTADO_SIN_TEXTO, ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
 import { AnalizarContraVacante } from "@/components/AnalizarContraVacante";
-import { BadgeCategoria, BadgeDesactualizado } from "@/components/BadgeCategoria";
+import { BadgeCategoria, BadgeDesactualizado, BadgeManipulacion } from "@/components/BadgeCategoria";
 import { celda, celdaEncabezado, tabla } from "@/components/estilos";
 import Link from "next/link";
 import { consultarAnalisisDeCv, consultarCv, consultarVacantes } from "@/lib/consultas";
@@ -77,6 +77,7 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
                     <td className={celda}>
                       <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} />
                       {a.desactualizado && <span className="ml-2"><BadgeDesactualizado /></span>}
+                      {a.posibleManipulacion && <span className="mt-1 block"><BadgeManipulacion /></span>}
                     </td>
                     <td className={`${celda} text-right font-bold`}>{a.puntaje}</td>
                     <td className={`${celda} whitespace-nowrap`}>{formatearFecha(a.creadoEn)}</td>

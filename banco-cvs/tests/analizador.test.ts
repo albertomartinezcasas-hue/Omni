@@ -61,8 +61,8 @@ function extraccion(parcial: Partial<Extraccion> = {}): Extraccion {
       { id: "D1", nivel: 2, cita: "construí   TABLEROS en power bi" }, // mayúsculas y espacios distintos
     ],
     puestos: [
-      { puesto: "Analista de Datos Jr.", empresa: "Comercializadora Ficticia", tipo: "EMPLEO", cita: "Analista de Datos Jr., Comercializadora Ficticia SA de CV (ene 2023 - dic 2025)" },
-      { puesto: "Científica de datos", empresa: "Inventada", tipo: "EMPLEO", cita: "Científica de datos en Inventada (2015-2020)" },
+      { puesto: "Analista de Datos Jr.", empresa: "Comercializadora Ficticia", tipo: "EMPLEO", relevante: true, justificacion: "Aplica requisitos de la vacante", cita: "Analista de Datos Jr., Comercializadora Ficticia SA de CV (ene 2023 - dic 2025)" },
+      { puesto: "Científica de datos", empresa: "Inventada", tipo: "EMPLEO", relevante: true, justificacion: "Aplica requisitos de la vacante", cita: "Científica de datos en Inventada (2015-2020)" },
     ],
     estudios: { nivel: "LICENCIATURA", estatus: "TITULADO", cita: "Licenciatura en Actuaría" },
     idiomas: [{ idioma: "inglés", nivel: "INTERMEDIO", cita: "Inglés intermedio" }],

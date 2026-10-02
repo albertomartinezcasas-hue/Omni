@@ -74,6 +74,13 @@ export function calificar(r: ResultadoVerificado): Calificacion {
         ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto descartado" : "puestos descartados"} por falta de fechas o cita verificable; revisar el CV`]
         : []),
       ...(r.experiencia.puestos.some((p) => p.fechasSinMes) ? ["fechas sin mes; confirmar en entrevista"] : []),
+      ...((r.experiencia.puestosNoRelevantes?.length ?? 0) > 0
+        ? [
+            `no se consideraron relevantes: ${r.experiencia
+              .puestosNoRelevantes!.map((p) => `${p.puesto} (${describirMeses(p.meses)})`)
+              .join(", ")}; revisar`,
+          ]
+        : []),
     ];
     motivosNoViable.push(
       `No se encontró evidencia de: ${r.experiencia.minimo} ${r.experiencia.minimo === 1 ? "año" : "años"} de experiencia relevante (${notas.join("; ")})`,

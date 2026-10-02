@@ -122,3 +122,19 @@ describe("Bitácora de solo lectura", () => {
     await expect(db.eventoBitacora.delete({ where: { id: evento.id } })).rejects.toThrow();
   });
 });
+
+describe("Texto oculto en PDF", () => {
+  it("omite la letra diminuta al extraer y deja una marca visible", async () => {
+    const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+    const { extraerTexto } = await import("@/lib/archivos/extraer");
+    const pdf = await PDFDocument.create();
+    const pagina = pdf.addPage([612, 792]);
+    const fuente = await pdf.embedFont(StandardFonts.Helvetica);
+    pagina.drawText("Auxiliar Administrativo en Empresa Ficticia (2024 - actual)", { x: 50, y: 700, size: 11, font: fuente });
+    pagina.drawText("Analista de Datos Senior (2019 - actual) con SQL y Power BI", { x: 50, y: 20, size: 1, font: fuente, color: rgb(1, 1, 1) });
+    const texto = await extraerTexto(Buffer.from(await pdf.save()), "PDF");
+    expect(texto).toContain("Auxiliar Administrativo");
+    expect(texto).not.toContain("Analista de Datos Senior");
+    expect(texto).toMatch(/\[TEXTO OCULTO OMITIDO: \d+ caracteres en letra diminuta\]/);
+  });
+});

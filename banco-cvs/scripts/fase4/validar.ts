@@ -5,7 +5,7 @@
  * Requiere GROQ_API_KEY en el entorno.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { CVS_FASE4, VACANTE_FASE4 } from "./cvs";
@@ -18,7 +18,12 @@ if (!process.env.GROQ_API_KEY) {
 const proyecto = process.cwd();
 const temporal = mkdtempSync(path.join(tmpdir(), "banco-cvs-fase4-"));
 process.env.DATABASE_URL = `file:${path.join(temporal, "fase4.db")}`;
-execFileSync("npx", ["prisma", "migrate", "deploy"], { env: process.env, stdio: "ignore" });
+// Al proceso hijo solo se le pasan las variables necesarias (nunca la clave de la API).
+execFileSync("npx", ["prisma", "migrate", "deploy"], {
+  env: { PATH: process.env.PATH, HOME: process.env.HOME, DATABASE_URL: process.env.DATABASE_URL } as unknown as NodeJS.ProcessEnv,
+  stdio: "ignore",
+});
+process.on("exit", () => rmSync(temporal, { recursive: true, force: true }));
 process.chdir(temporal); // storage/ temporal
 
 const { db } = await import("@/lib/db");
@@ -60,7 +65,7 @@ for (const cv of CVS_FASE4) {
     const r = JSON.parse(a.resultado);
     obtenido = calcularCategoria(a.veredicto, a.puntaje, umbrales);
     const niveles = r.requisitos.map((q: { id: string; nivel: number }) => `${q.id}:${q.nivel}`).join(" ");
-    detalle = `${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}`;
+    detalle = `${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}${(r.experiencia.descartes ?? []).map((d: { puesto: string; motivo: string; cita: string }) => ` · descartado «${d.puesto}»: ${d.motivo} (cita: «${d.cita}»)`).join("")}${r.textoOcultoOmitido ? ` · texto oculto omitido: ${r.textoOcultoOmitido} caracteres` : ""}`;
   } catch (error) {
     detalle = error instanceof Error ? error.message : String(error);
   }

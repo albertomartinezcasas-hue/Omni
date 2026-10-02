@@ -106,6 +106,11 @@ export function TablaCandidatos({
                         <Link href={`/analisis/${f.analisisId}`} className="font-semibold text-blue-700 hover:underline">
                           {f.candidato}
                         </Link>
+                        {f.clave.posibleManipulacion && (
+                          <span className="mt-1 block w-fit rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+                            ⚠ Posible manipulación del CV
+                          </span>
+                        )}
                         {f.motivos.length > 0 && (
                           <span className="mt-1 block text-xs text-slate-700">
                             {f.motivos[0]}

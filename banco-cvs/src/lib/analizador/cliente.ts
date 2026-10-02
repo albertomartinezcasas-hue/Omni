@@ -81,6 +81,10 @@ export async function solicitarExtraccion(
       { timeout: tiempoMs },
     );
   } catch (error) {
+    // La generación no cumplió el esquema estricto: se trata como JSON inválido (usa el único reintento).
+    if (error instanceof Groq.BadRequestError && JSON.stringify(error.error ?? {}).includes("json_validate_failed")) {
+      return { json: "", modelo: modeloConfigurado() };
+    }
     if (error instanceof Groq.APIConnectionTimeoutError) {
       throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
     }

@@ -7,8 +7,19 @@ import type { Extraccion, ResultadoVerificado, VacanteEvaluada } from "./tipos";
 
 const MIN_CARACTERES_CITA = 12;
 // Citas que parecen instrucciones dirigidas al sistema (posible inyección): nunca son evidencia.
-export const PARECE_INSTRUCCION =
-  /\b(ignora|olvida|omite|disregard|ignore)\b.{0,40}\b(instrucci|reglas|indicaciones|instructions)|\b(calif[ií]ca(?:me|lo|la|r)?|eval[uú]a(?:me|lo|la)?|clasif[ií]ca(?:me|lo|la)?)\b.{0,30}\b(como|con)\b.{0,20}\b(excelente|bueno|viable|100|nivel)|\binstrucci[oó]n(?:es)?\s+(?:para|al)\s+(?:el\s+)?(?:sistema|modelo|evaluador|asistente|ia|analizador)\b/i;
+export const PARECE_INSTRUCCION = new RegExp(
+  [
+    "\\b(ignora|olvida|omite|disregard|ignore)\\b.{0,40}\\b(instrucci|reglas|indicaciones|instructions)",
+    "\\b(calif[ií]ca(?:me|lo|la|r)?|eval[uú]a(?:me|lo|la)?|clasif[ií]ca(?:me|lo|la)?)\\b.{0,30}\\b(como|con)\\b.{0,20}\\b(excelente|bueno|viable|100|nivel)",
+    "\\binstrucci[oó]n(?:es)?\\s+(?:para|al|a la)\\s+(?:el\\s+|la\\s+)?(?:sistema|modelo|evaluador|evaluadora|revisor|reclutador|asistente|ia|analizador)\\b",
+    "\\b(nota|mensaje|aviso)\\s+(?:para|al|a la)\\s+(?:quien\\s+eval[uú]a|el\\s+evaluador|la\\s+evaluadora|el\\s+revisor|el\\s+reclutador|la\\s+ia|el\\s+sistema|el\\s+modelo)",
+    "^\\s*(?:al|a la|para el|para la)\\s+(?:revisor|evaluador|evaluadora|reclutador|reclutadora|sistema|modelo|ia)\\s*[:,]",
+    "\\basigna(?:r|le)?\\s+(?:el\\s+)?nivel\\b",
+    "\\btodos\\s+los\\s+requisitos\\s+(?:est[aá]n|quedan|son)\\s+(?:demostrados|cumplidos)",
+    "\\b(note to|attention)\\s+(?:the\\s+)?(?:reviewer|recruiter|evaluator|ai|model|system)\\b",
+  ].join("|"),
+  "im",
+);
 
 export const MARCA_INSTRUCCION = "[TEXTO OMITIDO: parece una instrucción al sistema]";
 
@@ -40,6 +51,8 @@ export function normalizarParaCita(texto: string) {
     .replace(/[‘’‚‛′]/g, "'")
     .replace(/[“”„‟″«»]/g, '"')
     .replace(/[‐-―−]/g, "-")
+    // Viñetas de lista (al inicio de renglón o sueltas entre espacios): la IA a veces las omite al citar.
+    .replace(/(^|\s)[-•*▪◦·](?=\s)/gm, "$1")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
@@ -84,6 +97,20 @@ export function verificarExtraccion(
 
   // Requisitos: nivel > 0 solo con cita verificada.
   const porId = new Map(extraccion.requisitos.map((r) => [r.id, r]));
+  // "Demostrado" (nivel 2) exige que la cita no venga de un renglón que solo enlista habilidades
+  // (p. ej. "Habilidades: SQL, Excel, Tableau"). Si viene de una lista, se toma como "mencionado" (nivel 1).
+  const renglones = textoOculto.split("\n").map((r) => ({ original: r, normal: normalizarParaCita(r) }));
+  const esLista = (r: string) => {
+    const sinEtiqueta = r.replace(/^[^:]{0,30}:/, "");
+    const elementos = sinEtiqueta.split(/[,;|·•]/).map((e) => e.trim()).filter(Boolean);
+    return elementos.length >= 2 && elementos.every((e) => e.split(/\s+/).length <= 3);
+  };
+  const demuestra = (cita: string) => {
+    const buscada = normalizarParaCita(cita);
+    const origen = renglones.filter((r) => r.normal.includes(buscada));
+    // Si la cita abarca varios renglones, no se puede atribuir a una lista.
+    return origen.length === 0 ? !esLista(cita) : origen.some((r) => !esLista(r.original));
+  };
   const requisitos = [
     ...vacante.obligatorios.map((r) => ({ ...r, tipo: "OBLIGATORIO" as const })),
     ...vacante.deseables.map((r) => ({ ...r, tipo: "DESEABLE" as const })),
@@ -91,11 +118,12 @@ export function verificarExtraccion(
     const dado = porId.get(r.id);
     const nivelDado = (dado?.nivel ?? 0) as 0 | 1 | 2;
     const verificada = nivelDado > 0 && existe(dado?.cita);
+    const nivel = !verificada ? 0 : nivelDado === 2 && !demuestra(dado!.cita!) ? 1 : nivelDado;
     return {
       id: r.id,
       tipo: r.tipo,
       texto: r.texto,
-      nivel: verificada ? nivelDado : 0,
+      nivel,
       cita: verificada ? citaSegura(dado!.cita!) : null,
       citaNoVerificada: nivelDado > 0 && !verificada,
     } as const;
@@ -104,18 +132,36 @@ export function verificarExtraccion(
   // Puestos: cita verificada que contiene literalmente el puesto, la empresa y al menos un año.
   // La duración la calcula el código con esas fechas ("actual" = fecha del análisis), sin traslapes.
   const vistas = new Set<string>();
+  const descartes: { puesto: string; empresa: string; motivo: string; cita: string }[] = [];
+  const descartar = (p: { puesto: string; empresa: string; cita: string }, motivo: string) => {
+    descartes.push({
+      puesto: textoLibreSeguro(p.puesto) ?? "—",
+      empresa: textoLibreSeguro(p.empresa) ?? "—",
+      motivo,
+      cita: citaSegura(p.cita).slice(0, 200),
+    });
+    return [];
+  };
   const puestos = extraccion.puestos.flatMap((p) => {
     const clave = normalizarParaCita(p.cita);
-    if (vistas.has(clave) || !existe(p.cita)) return [];
-    if (!clave.includes(normalizarParaCita(p.puesto)) || !clave.includes(normalizarParaCita(p.empresa))) return [];
-    if (coincidenciasProtegidas(`${p.puesto} ${p.empresa}`).length) return [];
+    if (vistas.has(clave)) return descartar(p, "cita repetida");
+    if (!existe(p.cita)) return descartar(p, "la cita no aparece literalmente en el CV");
+    const sinPuntuacion = (t: string) => normalizarParaCita(t).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const claveSinPuntuacion = sinPuntuacion(p.cita);
+    if (!claveSinPuntuacion.includes(sinPuntuacion(p.puesto)) || !claveSinPuntuacion.includes(sinPuntuacion(p.empresa))) {
+      return descartar(p, "el puesto o la empresa no aparecen en la cita");
+    }
+    if (coincidenciasProtegidas(`${p.puesto} ${p.empresa}`).length) return descartar(p, "contiene datos protegidos");
     const periodo = periodoDeCita(p.cita, fechaAnalisis);
-    if (!periodo) return [];
+    if (!periodo) return descartar(p, "la cita no trae un periodo de fechas único");
     vistas.add(clave);
     return [{ ...p, periodo }];
   });
-  const anios = aniosSinTraslapes(puestos.map((p) => p.periodo));
-  const meses = mesesSinTraslapes(puestos.map((p) => p.periodo));
+  // Solo suman los puestos que la IA consideró relevantes; los demás quedan visibles con su justificación.
+  const relevantes = puestos.filter((p) => p.relevante);
+  const noRelevantes = puestos.filter((p) => !p.relevante);
+  const anios = aniosSinTraslapes(relevantes.map((p) => p.periodo));
+  const meses = mesesSinTraslapes(relevantes.map((p) => p.periodo));
 
   // Estudios e idiomas.
   const estudiosVerificados = extraccion.estudios.nivel !== "NO_ESPECIFICADO" && existe(extraccion.estudios.cita);
@@ -185,7 +231,7 @@ export function verificarExtraccion(
       anios,
       meses,
       minimo: vacante.aniosMinimos,
-      puestos: puestos.map((p) => ({
+      puestos: relevantes.map((p) => ({
         puesto: p.puesto,
         empresa: p.empresa,
         tipo: p.tipo,
@@ -193,9 +239,20 @@ export function verificarExtraccion(
         fin: formatoMes(p.periodo.fin),
         anios: aniosDePeriodo(p.periodo),
         fechasSinMes: p.periodo.sinMes,
+        justificacion: textoLibreSeguro(p.justificacion) ?? "",
+        cita: citaSegura(p.cita),
+      })),
+      puestosNoRelevantes: noRelevantes.map((p) => ({
+        puesto: p.puesto,
+        empresa: p.empresa,
+        inicio: formatoMes(p.periodo.inicio),
+        fin: formatoMes(p.periodo.fin),
+        meses: p.periodo.fin - p.periodo.inicio + 1,
+        justificacion: textoLibreSeguro(p.justificacion) ?? "Sin justificación",
         cita: citaSegura(p.cita),
       })),
       puestosDescartados: extraccion.puestos.length - puestos.length,
+      descartes,
       fechaAnalisis: fechaCdmx(fechaAnalisis).iso,
     },
     estudios,

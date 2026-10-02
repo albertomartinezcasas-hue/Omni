@@ -66,11 +66,22 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           {puedeReanalizar && <span className="print:hidden"><BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} /></span>}
         </div>
       )}
-      {(r.instruccionesOmitidas ?? 0) > 0 && (
-        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-          <span className="font-semibold">Atención:</span> este CV contiene texto que parece una instrucción al sistema
-          (posible intento de manipular el análisis). Se ignoró y no cuenta como evidencia. Revisa el CV original.
-        </div>
+      {((r.instruccionesOmitidas ?? 0) > 0 || (r.textoOcultoOmitido ?? 0) > 0) && (
+        <section role="note" aria-labelledby="aviso-manipulacion" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <h2 id="aviso-manipulacion" className="font-semibold">Posible intento de manipular el análisis</h2>
+          <ul className="mt-1 list-disc pl-5">
+            {(r.textoOcultoOmitido ?? 0) > 0 && (
+              <li>El PDF tenía {r.textoOcultoOmitido} caracteres en letra diminuta (texto oculto); se omitieron y no cuentan como evidencia.</li>
+            )}
+            {(r.instruccionesOmitidas ?? 0) > 0 && (
+              <li>
+                Se ignoraron {r.instruccionesOmitidas} {r.instruccionesOmitidas === 1 ? "renglón" : "renglones"} con texto que parece una
+                instrucción al sistema.
+              </li>
+            )}
+          </ul>
+          <p className="mt-1">Revisa el CV original antes de decidir.</p>
+        </section>
       )}
       {a.ajustesPrevios.length > 0 && (
         <Aviso tipo="info">
@@ -196,7 +207,8 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
 
           <section className={`${tarjeta} space-y-3`} aria-labelledby="experiencia">
             <h2 id="experiencia" className="text-lg font-bold text-slate-900">
-              Experiencia relevante: {r.experiencia.anios} {r.experiencia.anios === 1 ? "año" : "años"} (mínimo {r.experiencia.minimo})
+              Experiencia relevante: {describirMeses(r.experiencia.meses ?? Math.round(r.experiencia.anios * 12))} (mínimo{" "}
+              {r.experiencia.minimo} {r.experiencia.minimo === 1 ? "año" : "años"})
             </h2>
             {r.experiencia.puestos.length === 0 ? (
               <p className="text-sm text-slate-700">No se encontraron puestos relevantes con fechas verificables.</p>
@@ -207,14 +219,27 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
                     <p className="font-semibold text-slate-900">
                       {p.puesto} · {p.empresa}{" "}
                       <span className="font-normal text-slate-700">
-                        ({ETIQUETA_TIPO_PUESTO[p.tipo]}, {p.inicio} – {p.fin}, {p.anios} años)
+                        ({ETIQUETA_TIPO_PUESTO[p.tipo]}, {p.inicio} – {p.fin}, {describirMeses(Math.round(p.anios * 12))})
                       </span>
                     </p>
+                    {p.justificacion && <p className="text-xs text-slate-700">Relevante: {p.justificacion}</p>}
                     {p.fechasSinMes && <p className="text-xs text-amber-900">Fechas sin mes: se contó de forma conservadora; confirmar en entrevista.</p>}
                     <blockquote className="mt-1 border-l-4 border-slate-300 pl-3 text-slate-700">«{p.cita}»</blockquote>
                   </li>
                 ))}
               </ul>
+            )}
+            {(r.experiencia.puestosNoRelevantes?.length ?? 0) > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">Puestos no considerados relevantes (no suman experiencia; revisar):</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {r.experiencia.puestosNoRelevantes!.map((p) => (
+                    <li key={p.cita}>
+                      {p.puesto} · {p.empresa} ({p.inicio} – {p.fin}, {describirMeses(p.meses)}) — {p.justificacion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <p className="text-xs text-slate-600">
               Total verificable: {describirMeses(r.experiencia.meses ?? Math.round(r.experiencia.anios * 12))}. Los años los calcula el sistema con las fechas citadas (meses de inicio y término incluidos, sin contar
@@ -222,6 +247,15 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
               {r.experiencia.puestosDescartados > 0 &&
                 ` ${r.experiencia.puestosDescartados} puesto(s) se descartaron por no tener fechas o cita verificable.`}
             </p>
+            {(r.experiencia.descartes?.length ?? 0) > 0 && (
+              <ul className="list-disc pl-5 text-xs text-slate-700">
+                {r.experiencia.descartes!.map((d, i) => (
+                  <li key={i}>
+                    Descartado: {d.puesto} · {d.empresa} — {d.motivo}. Revisa el CV.
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className={`${tarjeta} space-y-2 text-sm`} aria-labelledby="formacion">
