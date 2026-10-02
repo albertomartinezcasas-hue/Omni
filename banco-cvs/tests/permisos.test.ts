@@ -13,7 +13,8 @@ import { archivarVacanteAccion, crearVacanteAccion, editarVacanteAccion } from "
 import { GET as descargar } from "@/app/api/cvs/[id]/descargar/route";
 import { POST as subir } from "@/app/api/cvs/route";
 import { subirCv } from "@/lib/archivos/servicio";
-import { consultarBitacora, consultarCvs, consultarUsuarios, consultarVacantes } from "@/lib/consultas";
+import { consultarBitacora, consultarCvs, consultarHistorial, consultarUsuarios, consultarVacantes } from "@/lib/consultas";
+import { GET as exportarHistorial } from "@/app/api/historial/route";
 import { db } from "@/lib/db";
 import { protegerPagina } from "@/lib/paginas";
 import { crearDocx, crearPdf, crearUsuario, simularSesion, textoCv } from "./ayuda";
@@ -206,6 +207,17 @@ describe("Matriz de permisos", () => {
     await expect(consultarBitacora()).rejects.toMatchObject({ motivo: "SIN_PERMISO" });
     await simularSesion(admin);
     expect((await consultarBitacora()).length).toBeGreaterThan(0);
+  });
+
+  it("Ver y exportar el historial de análisis: Usuario ❌ Admin ✅", async () => {
+    await simularSesion(usuario);
+    await expect(consultarHistorial({})).rejects.toMatchObject({ motivo: "SIN_PERMISO" });
+    expect((await exportarHistorial(new Request("http://localhost:3000/api/historial"))).status).toBe(403);
+    await simularSesion(admin);
+    expect((await consultarHistorial({})).resumen.total).toBeDefined();
+    const r = await exportarHistorial(new Request("http://localhost:3000/api/historial"));
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("text/csv");
   });
 
   it("Sin sesión: toda acción, consulta y ruta se rechaza", async () => {

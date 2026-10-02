@@ -1,9 +1,11 @@
 import { registrarEvento, type Actor } from "@/lib/bitacora";
 import type { NivelEstudio, NivelIdioma } from "@/lib/catalogos";
 import { db } from "@/lib/db";
+import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
+import { calcularCategoria } from "./categoria";
 import { conLimiteDeAnalisis } from "./limite";
 import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
@@ -133,6 +135,9 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     posibleManipulacion: omitidos > 0 || textoOcultoOmitido > 0,
   });
 
+  // Categoría con los umbrales de este momento: queda fija en el historial.
+  const categoriaAlAnalizar = calcularCategoria(calificacion.veredicto, calificacion.puntaje, await obtenerUmbrales());
+
   return db.$transaction(async (tx) => {
     // Se vuelve a verificar: la oposición pudo registrarse (o el CV eliminarse) mientras la IA respondía.
     const vigente = await tx.cv.findUnique({ where: { id: cvId }, select: { sinAnalisisIA: true } });
@@ -156,6 +161,24 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
         puntajeE: calificacion.E,
         puntajeF: calificacion.F,
         resultado: JSON.stringify(resultado),
+      },
+    });
+    // Historial permanente (estadística y auditoría): sin datos del candidato, sobrevive a la purga.
+    await tx.registroAnalisis.create({
+      data: {
+        analisisId: analisis.id,
+        cvId,
+        vacanteId,
+        vacanteTitulo: vacante.titulo,
+        area: vacante.area,
+        fecha: analisis.creadoEn,
+        veredicto: calificacion.veredicto,
+        puntaje: calificacion.puntaje,
+        categoria: categoriaAlAnalizar,
+        categoriaFinal: categoriaAlAnalizar,
+        modelo,
+        usuarioId: actor.id,
+        usuarioNombre: actor.nombre,
       },
     });
     if (!cv.nombreCandidato && resultado.nombreCandidato) {

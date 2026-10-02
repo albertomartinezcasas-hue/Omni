@@ -302,3 +302,14 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Corregido: la casilla se desmarca después de cada lote.
   - Corregido: nota de «No se puede re-analizar» también abajo en la página del análisis.
   - **Baja (documentado)**: la oposición se hereda solo de CVs que todavía existen; si el original ya se purgó, hay que volver a marcarla.
+
+### Historial de análisis (petición del usuario)
+
+- Tabla nueva `RegistroAnalisis` (migración `20261002210808_historial_analisis`, con carga inicial de los análisis existentes). Guarda fecha, área, vacante, veredicto, puntaje, categoría al analizar, categoría vigente (con ajustes), modelo y usuario. **No guarda datos de candidatos** (solo un id opaco del CV), por eso no se borra con la purga de 1 día.
+- Página `/admin/historial` (solo Admin, por ser de auditoría):
+  - filtros por área, vacante y fechas;
+  - número de CVs distintos y de análisis realizados;
+  - desglose por categoría, por área y por vacante;
+  - exportación a CSV, que queda registrada en la bitácora.
+- Las categorías por CV usan el análisis más reciente de cada CV en cada vacante. Los re-análisis cuentan en «análisis realizados».
+- Supuesto: en la carga inicial, la categoría al analizar se calculó con los umbrales vigentes al migrar.

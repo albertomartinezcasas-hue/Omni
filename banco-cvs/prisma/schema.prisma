@@ -154,3 +154,31 @@ model EventoBitacora {
   @@index([actorId])
   @@index([accion])
 }
+
+/// Historial permanente de análisis (estadística y auditoría). No guarda datos del candidato,
+/// así que se conserva aunque el CV y su análisis se eliminen por el plazo de conservación.
+model RegistroAnalisis {
+  id             String   @id @default(cuid())
+  /// Sin relación: el análisis se elimina con el CV, el registro no.
+  analisisId     String   @unique
+  /// Id opaco del CV, solo para contar CVs distintos.
+  cvId           String
+  vacanteId      String
+  vacanteTitulo  String
+  area           String
+  fecha          DateTime @default(now())
+  veredicto      String // VIABLE | NO_VIABLE | REVISION
+  puntaje        Int
+  /// Categoría calculada al analizar, con los umbrales de ese momento.
+  categoria      String
+  /// Categoría vigente: la calculada o la del último ajuste manual.
+  categoriaFinal String
+  ajustada       Boolean  @default(false)
+  modelo         String
+  usuarioId      String
+  usuarioNombre  String
+
+  @@index([fecha])
+  @@index([area])
+  @@index([vacanteId])
+}

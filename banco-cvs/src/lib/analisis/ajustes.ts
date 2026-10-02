@@ -38,6 +38,11 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
     const ajuste = await tx.ajusteCategoria.create({
       data: { analisisId, categoria: datos.categoria, comentario: datos.comentario, autorId: actor.id },
     });
+    // El historial refleja la categoría vigente (la calculada al analizar se conserva aparte).
+    await tx.registroAnalisis.updateMany({
+      where: { analisisId },
+      data: { categoriaFinal: datos.categoria, ajustada: true },
+    });
     await registrarEvento(
       {
         actor,

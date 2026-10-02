@@ -21,7 +21,8 @@ export type Accion =
   | "VACANTE_CREADA"
   | "VACANTE_EDITADA"
   | "VACANTE_ARCHIVADA"
-  | "UMBRALES_CAMBIADOS";
+  | "UMBRALES_CAMBIADOS"
+  | "HISTORIAL_EXPORTADO";
 
 export const ETIQUETA_ACCION: Record<Accion, string> = {
   LOGIN_OK: "Inicio de sesión",
@@ -45,6 +46,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   VACANTE_EDITADA: "Vacante editada",
   VACANTE_ARCHIVADA: "Vacante archivada",
   UMBRALES_CAMBIADOS: "Umbrales cambiados",
+  HISTORIAL_EXPORTADO: "Historial exportado",
 };
 
 export type Actor = { id: string; nombre: string; correo: string };

@@ -8,6 +8,7 @@ import {
 } from "@/lib/analisis/consultas";
 import { listarCvs, obtenerCv } from "@/lib/archivos/servicio";
 import { db } from "@/lib/db";
+import { opcionesDelHistorial, registrosDelHistorial, resumirHistorial, type FiltrosHistorial } from "@/lib/historial";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 import { listarUsuarios } from "@/lib/usuarios/servicio";
 import { listarVacantes, obtenerVacante } from "@/lib/vacantes/servicio";
@@ -105,4 +106,11 @@ export async function consultarUmbralesAdmin() {
 export async function consultarActores() {
   await requerirRol("ADMIN");
   return db.usuario.findMany({ select: { id: true, nombre: true, correo: true }, orderBy: { nombre: "asc" } });
+}
+
+/** Historial de análisis segmentado (solo Admin: auditoría). */
+export async function consultarHistorial(filtros: FiltrosHistorial) {
+  await requerirRol("ADMIN");
+  const [registros, opciones] = await Promise.all([registrosDelHistorial(filtros), opcionesDelHistorial()]);
+  return { resumen: resumirHistorial(registros), opciones };
 }

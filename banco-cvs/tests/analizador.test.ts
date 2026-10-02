@@ -276,6 +276,15 @@ describe("Análisis completo (API simulada)", () => {
         "No se encontró evidencia de: Excel avanzado (la cita del análisis no coincide con el CV; revisar manualmente)",
       ]);
       expect(a.modelo).toBe("groq:openai/gpt-oss-120b");
+      // El historial guarda el resultado sin datos del candidato.
+      expect(await db.registroAnalisis.findUniqueOrThrow({ where: { analisisId: a.id } })).toMatchObject({
+        cvId,
+        vacanteId,
+        veredicto: "NO_VIABLE",
+        categoria: "NO_VIABLE",
+        categoriaFinal: "NO_VIABLE",
+        usuarioId: u.id,
+      });
       expect(a.creadoPorId).toBe(u.id);
       expect(a.vacanteVersion).toBe(1);
       expect(JSON.parse(a.vacanteSnapshot).obligatorios).toHaveLength(2);

@@ -15,6 +15,7 @@ export function NavPrincipal({ esAdmin }: { esAdmin: boolean }) {
       ? [
           { href: "/admin/usuarios", texto: "Usuarios", activo: ruta.startsWith("/admin/usuarios") },
           { href: "/admin/umbrales", texto: "Umbrales", activo: ruta.startsWith("/admin/umbrales") },
+          { href: "/admin/historial", texto: "Historial", activo: ruta.startsWith("/admin/historial") },
           { href: "/admin/bitacora", texto: "Bitácora", activo: ruta.startsWith("/admin/bitacora") },
         ]
       : []),
