@@ -48,7 +48,7 @@ export async function consultarBitacora(
     v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T${fin ? "23:59:59.999" : "00:00:00.000"}-06:00`) : undefined;
   const desde = fecha(filtros.desde, false);
   const hasta = fecha(filtros.hasta, true);
-  return db.eventoBitacora.findMany({
+  const eventos = await db.eventoBitacora.findMany({
     where: {
       ...(filtros.accion ? { accion: filtros.accion } : {}),
       ...(filtros.actorId ? { actorId: filtros.actorId } : {}),
@@ -57,6 +57,24 @@ export async function consultarBitacora(
     orderBy: { fecha: "desc" },
     take: 200,
   });
+  // La bitácora no guarda datos del candidato: el nombre se consulta mientras el CV exista.
+  const ids = (tipo: string) => [...new Set(eventos.filter((e) => e.entidadTipo === tipo && e.entidadId).map((e) => e.entidadId!))];
+  const [cvs, analisis] = await Promise.all([
+    db.cv.findMany({ where: { id: { in: ids("CV") } }, select: { id: true, nombreCandidato: true, nombreArchivo: true } }),
+    db.analisis.findMany({
+      where: { id: { in: ids("ANALISIS") } },
+      select: { id: true, cv: { select: { nombreCandidato: true, nombreArchivo: true } } },
+    }),
+  ]);
+  const nombres = new Map<string, string>([
+    ...cvs.map((c) => [c.id, c.nombreCandidato ?? c.nombreArchivo] as [string, string]),
+    ...analisis.map((a) => [a.id, a.cv.nombreCandidato ?? a.cv.nombreArchivo] as [string, string]),
+  ]);
+  return eventos.map((e) => ({
+    ...e,
+    /** Candidato del CV o del análisis; null si ya se eliminó. */
+    candidato: e.entidadTipo === "CV" || e.entidadTipo === "ANALISIS" ? (nombres.get(e.entidadId ?? "") ?? null) : undefined,
+  }));
 }
 
 export async function consultarCandidatos(vacanteId: string, versionActual: number) {

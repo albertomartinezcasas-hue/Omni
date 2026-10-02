@@ -3,6 +3,7 @@ import path from "node:path";
 import { registrarEvento } from "@/lib/bitacora";
 import { db } from "@/lib/db";
 import { directorioAlmacenamiento, eliminarArchivo } from "./almacenamiento";
+import { olvidarCvs } from "./olvido";
 
 // Plazo de conservación de CVs (aviso de privacidad): se eliminan, con sus análisis y ajustes, al cumplirse
 // CONSERVACION_DIAS desde su última actividad (subida o análisis más reciente). Por defecto, 1 día.
@@ -44,9 +45,13 @@ export async function purgarCvsVencidos(ahora: Date = new Date(), dias: number |
     const lista = await tx.cv.findMany({ where: vencido, select: { id: true, archivoId: true } });
     if (lista.length === 0) return [];
     // La condición se repite al borrar: un CV analizado entre la consulta y el borrado se conserva.
-    await tx.cv.deleteMany({ where: { id: { in: lista.map((c) => c.id) }, ...vencido } });
-    const quedan = new Set((await tx.cv.findMany({ where: { id: { in: lista.map((c) => c.id) } }, select: { id: true } })).map((c) => c.id));
-    const borrados = lista.filter((c) => !quedan.has(c.id));
+    const confirmados = await tx.cv.findMany({ where: { id: { in: lista.map((c) => c.id) }, ...vencido }, select: { id: true } });
+    const ids = new Set(confirmados.map((c) => c.id));
+    const borrados = lista.filter((c) => ids.has(c.id));
+    if (borrados.length === 0) return [];
+    // Antes de borrar: historial con seudónimos y bitácora sin datos del candidato.
+    await olvidarCvs(tx, [...ids]);
+    await tx.cv.deleteMany({ where: { id: { in: [...ids] } } });
     if (borrados.length > 0) {
       await registrarEvento(
         {

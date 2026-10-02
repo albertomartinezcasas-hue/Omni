@@ -313,3 +313,23 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - exportación a CSV, que queda registrada en la bitácora.
 - Las categorías por CV usan el análisis más reciente de cada CV en cada vacante. Los re-análisis cuentan en «análisis realizados».
 - Supuesto: en la carga inicial, la categoría al analizar se calculó con los umbrales vigentes al migrar.
+
+#### Revisión del historial (ronda 1)
+
+- **revisor-seguridad: RECHAZADO**; **experto-reclutamiento: APROBADO CON AJUSTES**. Los dos encontraron el mismo hallazgo Alta: la bitácora guardaba el nombre del candidato junto al id del análisis y del CV. Con eso, el historial se podía volver a ligar al candidato aunque el CV se purgara.
+  - **Corregido**: la bitácora deja de guardar datos del candidato en todos los eventos de CV y de análisis (nombre, archivo, comentarios del ajuste). La página de la bitácora muestra el nombre consultándolo mientras el CV existe; después dice «Candidato eliminado». La bitácora sigue siendo de solo inserción (los triggers no cambian).
+  - **Corregido**: al eliminar un CV (por plazo o a mano), el historial reemplaza su id por un seudónimo aleatorio y deja `analisisId` en nulo (migración `20261002211300_historial_seudonimos`). El CSV no incluye ids.
+  - **Nota**: los eventos ya guardados en bases anteriores a este cambio pueden contener nombres (solo afecta datos de prueba, porque aún no hay producción).
+- Corregido (Media):
+  - el historial guarda quién ajustó y cuándo;
+  - métricas de auditoría: pendientes de revisión, tiempo promedio de resolución, porcentaje con modelo ligero, posible manipulación y cambios manuales («de → a»);
+  - la pantalla separa CVs de resultados (CV × vacante);
+  - el CSV usa etiquetas en español y hora de CDMX;
+  - las tablas se pueden recorrer con el teclado y la primera columna queda fija.
+- Corregido (Baja):
+  - ids de las tablas sin espacios;
+  - la protección contra fórmulas en el CSV también cubre espacios y saltos de línea al inicio;
+  - la exportación rechaza peticiones de otro sitio (`Sec-Fetch-Site`);
+  - la carga inicial toma el título de la vacante tal como estaba al analizar;
+  - el filtro de fechas se explica en la nota;
+  - los filtros se muestran legibles en la bitácora.

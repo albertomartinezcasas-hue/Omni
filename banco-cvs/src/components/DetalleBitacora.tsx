@@ -29,7 +29,16 @@ const ETIQUETA_CAMPO: Record<string, string> = {
   textoOcultoOmitido: "Caracteres en letra diminuta omitidos",
   anterior: "Anterior",
   nuevo: "Nuevo",
+  cantidad: "Cantidad",
+  plazoDias: "Plazo (días)",
+  ids: "Ids",
+  seOpone: "Se opone",
+  oposicionIA: "Oposición al análisis con IA",
+  registros: "Registros exportados",
+  filtros: "Filtros",
 };
+
+const ETIQUETA_FILTRO: Record<string, string> = { desde: "desde", hasta: "hasta", area: "área", vacanteId: "vacante (id)" };
 
 const MOTIVOS: Record<string, string> = {
   CUENTA_INEXISTENTE: "Cuenta inexistente",
@@ -47,6 +56,13 @@ function valor(clave: string, v: unknown): string {
   if (clave.startsWith("rol")) return ETIQUETA_ROL[v as Rol] ?? String(v);
   if (clave === "categoriaCalculada") return categoria(v);
   if (clave === "hasta") return new Date(String(v)).toLocaleString("es-MX", { timeZone: "America/Mexico_City" });
+  if (clave === "filtros" && v && typeof v === "object") {
+    const partes = Object.entries(v as Record<string, unknown>)
+      .filter(([, x]) => x)
+      .map(([k, x]) => `${ETIQUETA_FILTRO[k] ?? k}: ${String(x)}`);
+    return partes.length ? partes.join(", ") : "Sin filtros";
+  }
+  if (Array.isArray(v)) return `${v.length} elemento(s)`;
   if (clave === "veredicto") return v === "VIABLE" ? "Viable" : v === "REVISION" ? "Pendiente de revisión" : "No viable";
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }

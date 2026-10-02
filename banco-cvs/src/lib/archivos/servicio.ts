@@ -3,6 +3,7 @@ import { registrarEvento, type Actor } from "@/lib/bitacora";
 import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { eliminarArchivo, guardarArchivo, leerArchivo } from "./almacenamiento";
+import { olvidarCvs } from "./olvido";
 import { extraerCorreo, hashDeTexto } from "./duplicados";
 import { esTextoLegible, extraerTexto } from "./extraer";
 import { detectarTipo, TAMANO_MAXIMO } from "./firma";
@@ -110,8 +111,8 @@ export async function subirCv(
           accion: "CV_SUBIDO",
           entidadTipo: "CV",
           entidadId: creado.id,
+          // Sin nombre de archivo ni del candidato: la bitácora no se borra y el CV sí (minimización).
           detalle: {
-            archivo: nombreArchivo,
             tipo,
             sinTexto,
             duplicadoConfirmado: entrada.forzar,
@@ -139,7 +140,6 @@ export async function descargarCv(actor: Actor, cvId: string) {
     accion: "CV_DESCARGADO",
     entidadTipo: "CV",
     entidadId: cv.id,
-    detalle: { archivo: cv.nombreArchivo },
   });
   return { contenido, nombreArchivo: cv.nombreArchivo, tipo: cv.tipo as "PDF" | "DOCX" };
 }
@@ -163,7 +163,6 @@ export async function corregirNombreCandidato(actor: Actor, cvId: string, nombre
         accion: "CV_NOMBRE_CORREGIDO",
         entidadTipo: "CV",
         entidadId: cvId,
-        detalle: { archivo: cv.nombreArchivo, anterior: cv.nombreCandidato, nuevo },
       },
       tx,
     );
@@ -192,17 +191,10 @@ export async function eliminarCv(actor: Actor, cvId: string) {
   const cv = await db.cv.findUnique({ where: { id: cvId } });
   if (!cv) throw new ErrorNegocio("El CV no existe.");
   await db.$transaction(async (tx) => {
+    // Historial con seudónimo y bitácora sin datos del candidato; el evento de eliminación tampoco los guarda.
+    await olvidarCvs(tx, [cvId]);
     await tx.cv.delete({ where: { id: cvId } });
-    await registrarEvento(
-      {
-        actor,
-        accion: "CV_ELIMINADO",
-        entidadTipo: "CV",
-        entidadId: cvId,
-        detalle: { archivo: cv.nombreArchivo, candidato: cv.nombreCandidato },
-      },
-      tx,
-    );
+    await registrarEvento({ actor, accion: "CV_ELIMINADO", entidadTipo: "CV", entidadId: cvId }, tx);
   });
   await eliminarArchivo(cv.archivoId);
 }

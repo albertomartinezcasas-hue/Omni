@@ -8,6 +8,11 @@ import { respuestaDeError } from "@/lib/seguridad";
 export async function GET(req: Request) {
   try {
     const usuario = await requerirRol("ADMIN");
+    // Solo navegación propia: otro sitio no puede provocar una exportación (que escribe en la bitácora).
+    const sitio = req.headers.get("sec-fetch-site");
+    if (sitio && sitio !== "same-origin" && sitio !== "none") {
+      return NextResponse.json({ error: "Origen no permitido." }, { status: 403 });
+    }
     const p = new URL(req.url).searchParams;
     const filtros = {
       desde: p.get("desde") || undefined,

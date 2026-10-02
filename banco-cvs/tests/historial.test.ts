@@ -3,7 +3,8 @@ import { purgarCvsVencidos } from "@/lib/archivos/conservacion";
 import { subirCv } from "@/lib/archivos/servicio";
 import { ajustarCategoria } from "@/lib/analisis/ajustes";
 import { db } from "@/lib/db";
-import { historialACsv, registrosDelHistorial, resumirHistorial } from "@/lib/historial";
+import { eliminarCv } from "@/lib/archivos/servicio";
+import { celdaCsv, historialACsv, registrosDelHistorial, resumirHistorial } from "@/lib/historial";
 import { crearPdf, crearUsuario, textoCv } from "./ayuda";
 
 let usuario: Awaited<ReturnType<typeof crearUsuario>>;
@@ -47,7 +48,10 @@ describe("Historial segmentado por CVs, área y categoría", () => {
 
     const r = resumirHistorial(await registrosDelHistorial());
     expect(r.total.cvs).toBe(3);
+    expect(r.total.resultados).toBe(4);
     expect(r.total.analisis).toBe(5);
+    expect(r.pendientesRevision).toBe(1);
+    expect(r.cambiosManuales).toEqual([{ de: "EXCELENTE", a: "EXCELENTE", cantidad: 1 }]);
     expect(r.total.porCategoria).toMatchObject({ EXCELENTE: 1, BUENO: 1, PASABLE: 0, REVISION: 1, NO_VIABLE: 1 });
     expect(r.ajustadas).toBe(1);
     const datos = r.porArea.find((a) => a.etiqueta === "Datos")!;
@@ -59,11 +63,14 @@ describe("Historial segmentado por CVs, área y categoría", () => {
     expect(soloVentas.total.cvs).toBe(2);
   });
 
-  it("el CSV no incluye datos de candidatos y neutraliza fórmulas", async () => {
-    const r = await registro({ cvId: "cv9", vacanteId: "v9", area: "=HYPERLINK(\"x\")", categoriaFinal: "BUENO" });
+  it("el CSV no incluye datos de candidatos ni ids, usa etiquetas en español y neutraliza fórmulas", async () => {
+    const r = await registro({ cvId: "cv9", vacanteId: "v9", area: "=HYPERLINK(\"x\")", categoriaFinal: "REVISION" });
     const csv = historialACsv([r]);
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
-    expect(csv.split("\r\n")[0]).not.toMatch(/nombre del candidato|correo/i);
+    expect(csv).toContain("Pendiente de revisión");
+    expect(csv).not.toContain("cv9");
+    expect(csv).not.toContain(r.analisisId!);
+    expect(celdaCsv(" \n=1+1")).toBe(`"' \n=1+1"`);
   });
 });
 
@@ -100,9 +107,38 @@ describe("El historial sobrevive a la purga y refleja los ajustes", () => {
       ajustada: true,
     });
 
+    const ajustado = await db.registroAnalisis.findUniqueOrThrow({ where: { analisisId: analisis.id } });
+    expect(ajustado.ajustadaPor).toBe(usuario.nombre);
+    expect(ajustado.fechaAjuste).not.toBeNull();
+
     await db.cv.update({ where: { id: subida.id }, data: { creadoEn: new Date(Date.now() - 3 * DIA) } });
     await purgarCvsVencidos(new Date(), 1);
     expect(await db.cv.findUnique({ where: { id: subida.id } })).toBeNull();
-    expect(await db.registroAnalisis.findUnique({ where: { analisisId: analisis.id } })).not.toBeNull();
+
+    // El registro se conserva, pero ya no se puede ligar al CV ni al análisis.
+    const conservado = await db.registroAnalisis.findUniqueOrThrow({ where: { id: ajustado.id } });
+    expect(conservado).toMatchObject({ analisisId: null, categoriaFinal: "BUENO", area: "Datos" });
+    expect(conservado.cvId).not.toBe(subida.id);
+    expect(conservado.cvId).toMatch(/^seudonimo-/);
+    // La bitácora (solo inserción) conserva los eventos y nunca guardó datos del candidato.
+    const eventos = await db.eventoBitacora.findMany({ where: { OR: [{ entidadId: subida.id }, { entidadId: analisis.id }] } });
+    expect(eventos.length).toBeGreaterThanOrEqual(2);
+    for (const e of eventos) {
+      expect(e.detalle ?? "").not.toContain("Hugo");
+      expect(e.detalle ?? "").not.toContain("h.pdf");
+      expect(e.detalle ?? "").not.toContain("Experiencia confirmada");
+    }
+  });
+});
+
+describe("Eliminación manual", () => {
+  it("también aplica el seudónimo y limpia la bitácora", async () => {
+    const subida = await subirCv(usuario, { nombreArchivo: "Irma_Ficticia.pdf", contenido: crearPdf(textoCv("Irma", "irma@correo.mx")), forzar: true });
+    if (subida.estado !== "GUARDADO") throw new Error("no se guardó");
+    const r = await registro({ cvId: subida.id, vacanteId: "v5", area: "Datos", categoriaFinal: "BUENO" });
+    await eliminarCv(usuario, subida.id);
+    expect((await db.registroAnalisis.findUniqueOrThrow({ where: { id: r.id } })).cvId).toMatch(/^seudonimo-/);
+    const eventos = await db.eventoBitacora.findMany({ where: { entidadId: subida.id } });
+    for (const e of eventos) expect(e.detalle ?? "").not.toContain("Irma");
   });
 });

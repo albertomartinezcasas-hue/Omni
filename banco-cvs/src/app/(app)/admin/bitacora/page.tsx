@@ -97,6 +97,9 @@ export default async function PaginaBitacora({ searchParams }: { searchParams: P
                       ) : (
                         "—"
                       )}
+                      {e.candidato !== undefined && (
+                        <span className="block text-xs text-slate-700">{e.candidato ?? "Candidato eliminado"}</span>
+                      )}
                     </td>
                     <td className={`${celda} max-w-md`}><DetalleBitacora detalle={e.detalle} /></td>
                   </tr>

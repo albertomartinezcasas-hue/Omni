@@ -218,6 +218,9 @@ describe("Matriz de permisos", () => {
     const r = await exportarHistorial(new Request("http://localhost:3000/api/historial"));
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toContain("text/csv");
+    // Otro sitio no puede provocar la exportación.
+    const ajeno = new Request("http://localhost:3000/api/historial", { headers: { "sec-fetch-site": "cross-site" } });
+    expect((await exportarHistorial(ajeno)).status).toBe(403);
   });
 
   it("Sin sesión: toda acción, consulta y ruta se rechaza", async () => {

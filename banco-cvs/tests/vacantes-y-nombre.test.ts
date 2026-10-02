@@ -42,7 +42,7 @@ describe("Edición de vacantes", () => {
 });
 
 describe("Corrección del nombre del candidato", () => {
-  it("Usuario puede corregirlo y queda en la bitácora con el valor anterior y el nuevo", async () => {
+  it("Usuario puede corregirlo y queda en la bitácora (sin guardar el nombre)", async () => {
     const usuario = await crearUsuario();
     const cv = await subirCv(usuario, {
       nombreArchivo: "cv_final2.pdf",
@@ -56,7 +56,8 @@ describe("Corrección del nombre del candidato", () => {
     expect((await db.cv.findUniqueOrThrow({ where: { id: cv.id } })).nombreCandidato).toBe("Mario Ficticio López");
     const evento = await db.eventoBitacora.findFirstOrThrow({ where: { accion: "CV_NOMBRE_CORREGIDO", entidadId: cv.id } });
     expect(evento.actorId).toBe(usuario.id);
-    expect(JSON.parse(evento.detalle!)).toMatchObject({ anterior: null, nuevo: "Mario Ficticio López" });
+    // La bitácora no guarda el nombre (minimización): solo quién y sobre qué CV.
+    expect(evento.detalle ?? "").not.toContain("Mario");
     await simularSesion(null);
     expect((await corregirNombreAccion(cv.id, undefined, form({ nombreCandidato: "Otro" }))).ok).toBe(false);
   });

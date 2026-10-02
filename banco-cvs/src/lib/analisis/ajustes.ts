@@ -41,7 +41,7 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
     // El historial refleja la categoría vigente (la calculada al analizar se conserva aparte).
     await tx.registroAnalisis.updateMany({
       where: { analisisId },
-      data: { categoriaFinal: datos.categoria, ajustada: true },
+      data: { categoriaFinal: datos.categoria, ajustada: true, ajustadaPor: actor.nombre, fechaAjuste: ajuste.creadoEn },
     });
     await registrarEvento(
       {
@@ -51,13 +51,11 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
         entidadId: analisisId,
         detalle: {
           vacante: analisis.vacante.titulo,
-          cv: analisis.cv.nombreCandidato ?? analisis.cv.nombreArchivo,
           categoriaAnterior,
           categoria: datos.categoria,
           categoriaCalculada,
           puntaje: analisis.puntaje,
           umbrales,
-          comentario: datos.comentario,
         },
       },
       tx,

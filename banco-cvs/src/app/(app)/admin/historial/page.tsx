@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BadgeCategoria } from "@/components/BadgeCategoria";
-import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, tarjetaTabla, titulo } from "@/components/estilos";
+import { ayuda, boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, tarjetaTabla, titulo } from "@/components/estilos";
 import { CATEGORIAS, ETIQUETA_CATEGORIA } from "@/lib/catalogos";
 import { consultarHistorial } from "@/lib/consultas";
 import type { Segmento } from "@/lib/historial";
@@ -12,16 +12,19 @@ type Filtros = { desde?: string; hasta?: string; area?: string; vacante?: string
 
 const porcentaje = (parte: number, total: number) => (total ? `${Math.round((parte / total) * 100)} %` : "—");
 
-function TablaSegmentos({ titulo: tituloTabla, filas, conArea = false }: { titulo: string; filas: (Segmento & { area?: string })[]; conArea?: boolean }) {
+function TablaSegmentos({ id, titulo: tituloTabla, filas, conArea = false }: { id: string; titulo: string; filas: (Segmento & { area?: string })[]; conArea?: boolean }) {
+  const primera = "sticky left-0 z-10 bg-white";
   return (
-    <section className={tarjetaTabla} aria-labelledby={`tabla-${tituloTabla}`}>
-      <h2 id={`tabla-${tituloTabla}`} className="px-4 pt-4 text-base font-bold text-slate-900">{tituloTabla}</h2>
-      <table className={`${tabla} mt-2 min-w-[48rem]`}>
+    // Desplazable en móvil: recibe el foco para poder moverse con el teclado.
+    <section className={tarjetaTabla} aria-labelledby={id} tabIndex={0}>
+      <h2 id={id} className="px-4 pt-4 text-base font-bold text-slate-900">{tituloTabla}</h2>
+      <table className={`${tabla} mt-2 min-w-[52rem]`}>
         <thead>
           <tr>
-            <th scope="col" className={celdaEncabezado}>{conArea ? "Vacante" : "Área"}</th>
+            <th scope="col" className={`${celdaEncabezado} ${primera}`}>{conArea ? "Vacante" : "Área"}</th>
             {conArea && <th scope="col" className={celdaEncabezado}>Área</th>}
             <th scope="col" className={`${celdaEncabezado} text-right`}>CVs</th>
+            <th scope="col" className={`${celdaEncabezado} text-right`}>Resultados</th>
             <th scope="col" className={`${celdaEncabezado} text-right`}>Análisis</th>
             {CATEGORIAS.map((c) => (
               <th key={c} scope="col" className={`${celdaEncabezado} text-right`}>{ETIQUETA_CATEGORIA[c]}</th>
@@ -31,9 +34,10 @@ function TablaSegmentos({ titulo: tituloTabla, filas, conArea = false }: { titul
         <tbody>
           {filas.map((s) => (
             <tr key={s.clave}>
-              <th scope="row" className={`${celda} break-words text-left font-semibold`}>{s.etiqueta}</th>
+              <th scope="row" className={`${celda} ${primera} break-words text-left font-semibold`}>{s.etiqueta}</th>
               {conArea && <td className={celda}>{s.area}</td>}
               <td className={`${celda} text-right font-bold`}>{s.cvs}</td>
+              <td className={`${celda} text-right`}>{s.resultados}</td>
               <td className={`${celda} text-right`}>{s.analisis}</td>
               {CATEGORIAS.map((c) => (
                 <td key={c} className={`${celda} text-right`}>{s.porCategoria[c]}</td>
@@ -43,6 +47,15 @@ function TablaSegmentos({ titulo: tituloTabla, filas, conArea = false }: { titul
         </tbody>
       </table>
     </section>
+  );
+}
+
+function Dato({ etiqueta: texto, valor }: { etiqueta: string; valor: string | number }) {
+  return (
+    <div>
+      <dt className="text-sm text-slate-700">{texto}</dt>
+      <dd className="text-3xl font-bold text-slate-900">{valor}</dd>
+    </div>
   );
 }
 
@@ -58,7 +71,6 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
   const hayFiltros = Object.values(f).some(Boolean);
   const consulta = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]).toString();
   const { total } = resumen;
-  const resultados = resumen.resultados;
 
   return (
     <div className="space-y-6">
@@ -70,7 +82,10 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
             por el plazo de conservación, y no guarda datos de los candidatos.
           </p>
         </div>
-        <a href={`/api/historial${consulta ? `?${consulta}` : ""}`} className={boton.secundario}>Descargar CSV</a>
+        <div className="text-right">
+          <a href={`/api/historial${consulta ? `?${consulta}` : ""}`} className={boton.secundario}>Descargar CSV</a>
+          <p className={`${ayuda} mt-1`}>La descarga queda registrada en la bitácora.</p>
+        </div>
       </div>
 
       <form method="get" className={`${tarjeta} grid gap-4 md:grid-cols-5`} aria-label="Filtrar historial">
@@ -111,40 +126,61 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
         <>
           <section className={`${tarjeta} space-y-4`} aria-labelledby="resumen-historial">
             <h2 id="resumen-historial" className="text-base font-bold text-slate-900">Resumen</h2>
-            <dl className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <dt className="text-sm text-slate-700">CVs analizados</dt>
-                <dd className="text-3xl font-bold text-slate-900">{total.cvs}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-700">Análisis realizados (incluye re-análisis)</dt>
-                <dd className="text-3xl font-bold text-slate-900">{total.analisis}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-700">Categorías ajustadas a mano</dt>
-                <dd className="text-3xl font-bold text-slate-900">{resumen.ajustadas}</dd>
-              </div>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Dato etiqueta="CVs analizados" valor={total.cvs} />
+              <Dato etiqueta="Resultados (CV × vacante)" valor={total.resultados} />
+              <Dato etiqueta="Análisis realizados (incluye re-análisis)" valor={total.analisis} />
+              <Dato etiqueta="Categorías ajustadas a mano" valor={resumen.ajustadas} />
             </dl>
             <div>
-              <h3 className="text-sm font-semibold text-slate-800">Por categoría (resultado vigente de cada CV en cada vacante)</h3>
+              <h3 className="text-sm font-semibold text-slate-800">Por categoría ({total.resultados} resultados)</h3>
               <ul className="mt-2 flex flex-wrap gap-4">
                 {CATEGORIAS.map((c) => (
                   <li key={c} className="flex items-center gap-2 text-sm">
                     <BadgeCategoria categoria={c} />
                     <span className="font-bold text-slate-900">{total.porCategoria[c]}</span>
-                    <span className="text-slate-700">({porcentaje(total.porCategoria[c], resultados)})</span>
+                    <span className="text-slate-700">({porcentaje(total.porCategoria[c], total.resultados)})</span>
                   </li>
                 ))}
               </ul>
             </div>
           </section>
 
-          <TablaSegmentos titulo="Por área" filas={resumen.porArea} />
-          <TablaSegmentos titulo="Por vacante" filas={resumen.porVacante} conArea />
+          <section className={`${tarjeta} space-y-4`} aria-labelledby="auditoria-historial">
+            <h2 id="auditoria-historial" className="text-base font-bold text-slate-900">Auditoría</h2>
+            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[18rem_1fr]">
+              <dt className="font-semibold text-slate-700">Pendientes de revisión sin resolver</dt>
+              <dd>{resumen.pendientesRevision}</dd>
+              <dt className="font-semibold text-slate-700">Tiempo promedio para resolver una revisión</dt>
+              <dd>{resumen.horasPromedioRevision === null ? "—" : `${resumen.horasPromedioRevision.toFixed(1)} horas`}</dd>
+              <dt className="font-semibold text-slate-700">Análisis con un modelo de IA ligero</dt>
+              <dd>{resumen.conModeloLigero} ({porcentaje(resumen.conModeloLigero, total.analisis)})</dd>
+              <dt className="font-semibold text-slate-700">Análisis de CVs con posible manipulación</dt>
+              <dd>{resumen.conManipulacion}</dd>
+              <dt className="font-semibold text-slate-700">Cambios manuales de categoría</dt>
+              <dd>
+                {resumen.cambiosManuales.length === 0 ? (
+                  "Ninguno"
+                ) : (
+                  <ul className="space-y-0.5">
+                    {resumen.cambiosManuales.map((c) => (
+                      <li key={`${c.de}-${c.a}`}>
+                        {ETIQUETA_CATEGORIA[c.de]} → {ETIQUETA_CATEGORIA[c.a]}: <span className="font-semibold">{c.cantidad}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </dl>
+          </section>
+
+          <TablaSegmentos id="tabla-area" titulo="Por área" filas={resumen.porArea} />
+          <TablaSegmentos id="tabla-vacante" titulo="Por vacante" filas={resumen.porVacante} conArea />
           <p className="text-xs text-slate-600">
-            «CVs» cuenta cada candidato una vez por segmento; las categorías usan el análisis más reciente de cada CV en
-            cada vacante, con los ajustes manuales. Los análisis anteriores a este historial usan los umbrales vigentes al
-            instalarlo.
+            «CVs» cuenta cada CV una vez por segmento. «Resultados» es uno por CV y vacante; las categorías suman ese
+            número y usan el análisis más reciente de cada CV en cada vacante dentro del periodo filtrado, con los
+            ajustes manuales. Un mismo candidato subido de nuevo después de eliminarse cuenta como otro CV. Los análisis
+            anteriores a este historial usan los umbrales vigentes al instalarlo.
           </p>
         </>
       )}

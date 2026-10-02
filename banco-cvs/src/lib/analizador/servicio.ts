@@ -179,6 +179,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
         modelo,
         usuarioId: actor.id,
         usuarioNombre: actor.nombre,
+        posibleManipulacion: omitidos > 0 || textoOcultoOmitido > 0,
       },
     });
     if (!cv.nombreCandidato && resultado.nombreCandidato) {
@@ -191,7 +192,6 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
         entidadTipo: "ANALISIS",
         entidadId: analisis.id,
         detalle: {
-          cv: cv.nombreCandidato ?? resultado.nombreCandidato ?? cv.nombreArchivo,
           vacante: vacante.titulo,
           veredicto: calificacion.veredicto,
           puntaje: calificacion.puntaje,
