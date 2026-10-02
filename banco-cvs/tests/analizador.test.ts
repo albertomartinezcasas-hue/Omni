@@ -256,7 +256,7 @@ describe("Análisis completo (API simulada)", () => {
           { id: "D1", nivel: 2, cita: "Construí tableros en Power BI" },
         ],
       })),
-      modelo: "claude-sonnet-5-5",
+      modelo: "openai/gpt-oss-120b",
     });
     for (const u of [usuario, admin]) {
       await simularSesion(u);
@@ -268,7 +268,7 @@ describe("Análisis completo (API simulada)", () => {
       expect(JSON.parse(a.motivosNoViable)).toEqual([
         "No se encontró evidencia de: Excel avanzado (la cita del análisis no coincide con el CV; revisar manualmente)",
       ]);
-      expect(a.modelo).toBe("claude-sonnet-5-5");
+      expect(a.modelo).toBe("openai/gpt-oss-120b");
       expect(a.creadoPorId).toBe(u.id);
       expect(a.vacanteVersion).toBe(1);
       expect(JSON.parse(a.vacanteSnapshot).obligatorios).toHaveLength(2);

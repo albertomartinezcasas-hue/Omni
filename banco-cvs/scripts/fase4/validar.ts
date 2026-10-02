@@ -2,7 +2,7 @@
  * Fase 4 — Analiza los 7 CVs ficticios contra "Analista de Datos Jr." con la API real
  * y muestra la tabla de resultado esperado vs. obtenido.
  * Usa una base de datos y un storage temporales (nunca los de la app).
- * Requiere ANTHROPIC_API_KEY en el entorno.
+ * Requiere GROQ_API_KEY en el entorno.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -10,8 +10,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { CVS_FASE4, VACANTE_FASE4 } from "./cvs";
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("Falta ANTHROPIC_API_KEY. Defínela en el entorno y vuelve a ejecutar.");
+if (!process.env.GROQ_API_KEY) {
+  console.error("Falta GROQ_API_KEY. Defínela en el entorno y vuelve a ejecutar.");
   process.exit(1);
 }
 
@@ -45,7 +45,17 @@ for (const cv of CVS_FASE4) {
   let obtenido = "ERROR";
   let detalle = "";
   try {
-    const id = await analizarCv(actor, carga.id, vacante.id);
+    // El plan gratuito de Groq limita los tokens por minuto: ante "saturado" se espera y se reintenta.
+    let id: string | undefined;
+    for (let intento = 1; !id; intento++) {
+      try {
+        id = await analizarCv(actor, carga.id, vacante.id);
+      } catch (error) {
+        if (intento >= 6 || !(error instanceof Error) || !error.message.includes("saturado")) throw error;
+        console.error(`   límite de uso alcanzado; reintento ${intento} en 30 s…`);
+        await new Promise((r) => setTimeout(r, 30_000));
+      }
+    }
     const a = await db.analisis.findUniqueOrThrow({ where: { id } });
     const r = JSON.parse(a.resultado);
     obtenido = calcularCategoria(a.veredicto, a.puntaje, umbrales);
@@ -60,9 +70,10 @@ for (const cv of CVS_FASE4) {
     `| ${cv.archivo} | ${ETIQUETA_CATEGORIA[cv.esperado]} | ${ETIQUETA_CATEGORIA[obtenido as keyof typeof ETIQUETA_CATEGORIA] ?? obtenido} | ${ok ? "✅" : "❌"} | ${detalle} |`,
   );
   console.error(`${ok ? "✅" : "❌"} ${cv.archivo}`);
+  await new Promise((r) => setTimeout(r, 10_000)); // espaciar llamadas por el límite de uso
 }
 
-console.log(`Modelo: ${process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5"} · Umbrales: ${JSON.stringify(umbrales)}\n`);
+console.log(`Modelo: ${process.env.GROQ_MODEL ?? "openai/gpt-oss-120b"} · Umbrales: ${JSON.stringify(umbrales)}\n`);
 console.log("| CV | Esperado | Obtenido | ¿Coincide? | Puntaje y evidencia |");
 console.log("|---|---|---|---|---|");
 console.log(filas.join("\n"));

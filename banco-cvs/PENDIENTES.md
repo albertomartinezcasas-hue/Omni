@@ -142,3 +142,14 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Baja] El correo se cortaba y aparecían acciones sobre la cuenta propia. — **Corregido** (`break-all` y acciones propias ocultas; el último Admin sigue protegido en el servidor).
 - [Baja] El formato de los campos de fecha depende del navegador. — **Mitigado** con ayuda "día/mes/año". El selector nativo sigue mostrando el formato del idioma del navegador.
 - Nota: la búsqueda por palabra clave no distingue mayúsculas solo en ASCII (SQLite `LIKE`): "José" no coincide con "jose". — Pendiente.
+
+## Fase 4
+
+### Cambio de proveedor del analizador (decisión del usuario)
+- El analizador usa ahora el SDK oficial de Groq (`groq-sdk` 1.6.0) en lugar del de Anthropic. Variables: `GROQ_API_KEY`, `GROQ_MODEL` (por defecto `openai/gpt-oss-120b`, con salida estructurada `json_schema` estricta). Se desinstaló `@anthropic-ai/sdk`. El motor no cambia: ocultamiento previo, verificación de citas, fórmulas y la regla de que la IA solo extrae evidencia.
+- [Media] El plan gratuito de Groq limita los tokens por minuto: en la validación hubo errores 429. La app los muestra como "El servicio de análisis está saturado… Reintentar" sin guardar nada parcial, pero una carga de 20 CVs con 3 análisis simultáneos tocará ese límite. — Pendiente: contratar un plan con más capacidad, o bajar la concurrencia a 1 si se queda en el plan gratuito (cambio a `MAX_SIMULTANEOS`).
+- [Baja] Los años se redondean a un decimal antes de la fórmula E (15 meses → 1.3 años → E 79 en lugar de 77.5). Con mínimos enteros nunca cambia el veredicto. — Pendiente: decidir si E usa meses exactos (sería un cambio a las fórmulas).
+
+### Validación con la IA real (`npm run fase4:validar`)
+- 7/7 CVs en su categoría esperada, con el mismo puntaje que el cálculo a mano. El CV con instrucción oculta quedó en Pasable (67) con 1 renglón de instrucciones ignorado.
+- El CV 06 estaba mal diseñado: "Asistente de Ventas" no es experiencia relevante para un analista de datos, así que salía NO VIABLE por requisito y no por puntaje. Se corrigió el CV de prueba, no el motor.
