@@ -28,11 +28,11 @@ const aMes = (anio: number, mes: number) => anio * 12 + mes;
 export const formatoMes = (m: number) => `${String((m % 12) + 1).padStart(2, "0")}/${Math.floor(m / 12)}`;
 
 /**
- * Interpreta el periodo de una cita como "ene 2023 - dic 2025", "03/2021 – actual", "desde 2021" o "2019 - 2022".
- * "Actual" o "desde" = fecha del análisis (hora de CDMX).
- * Criterio conservador cuando falta el mes: el inicio cuenta desde diciembre de ese año y el fin hasta
- * enero del año de término; el periodo queda marcado como `sinMes` para confirmarlo en entrevista.
- * Devuelve null si la cita no tiene ningún año.
+ * Interpreta el periodo de una cita como "ene 2023 - dic 2025", "03/2021 – actual", "desde 2021" o "2019 - 2021".
+ * - "Actual", "presente" o "desde" = fecha del análisis (hora de CDMX).
+ * - Si solo hay años, cuenta la diferencia: "2019 - 2021" = 2 años (ene 2019 – dic 2020).
+ * - Si falta la fecha de inicio o de fin (un solo año o mes), devuelve null: no se suma (se reporta en Alertas).
+ * - Más de un periodo en la misma cita también devuelve null.
  */
 export function periodoDeCita(cita: string, fechaAnalisis: Date): Periodo | null {
   const hoy = fechaCdmx(fechaAnalisis);
@@ -47,29 +47,21 @@ export function periodoDeCita(cita: string, fechaAnalisis: Date): Periodo | null
     const mesTexto = m[1] ? MESES[m[1].toLowerCase().slice(0, 3)] : undefined;
     const mesNumero = m[2] ? Number(m[2]) - 1 : undefined;
     const mes = mesTexto ?? (mesNumero !== undefined && mesNumero >= 0 && mesNumero <= 11 ? mesNumero : null);
-    marcas.push({ mes: mes === null ? aMes(anio, -1) : aMes(anio, mes), esFin: mes === null ? null : false });
+    // esFin = null → solo año (sin mes)
+    marcas.push({ mes: mes === null ? aMes(anio, 0) : aMes(anio, mes), esFin: mes === null ? null : false });
   }
-  const conAnio = marcas.filter((m) => m.esFin !== true);
-  // Exactamente un periodo: un año (o rango de dos fechas). Más marcas = bloque de varios periodos.
-  if (conAnio.length === 0 || marcas.length > 2) return null;
-
   // "desde 2021" sin fecha de término = hasta la fecha del análisis.
   if (marcas.length === 1 && /\bdesde\b/i.test(cita)) marcas.push({ mes: ahora, esFin: true });
+  // Exactamente un periodo con inicio y fin; un solo año o mes no basta.
+  if (marcas.length !== 2 || marcas[0].esFin === true) return null;
 
-  const primera = marcas[0];
-  const ultima = marcas.length > 1 ? marcas[marcas.length - 1] : marcas[0];
-  // Año sin mes: aMes(año, -1) es diciembre del año anterior → inicio = diciembre, fin = enero.
-  const inicio = primera.esFin === null ? primera.mes + 12 : primera.mes;
-  let fin = ultima.esFin === null ? ultima.mes + 1 : ultima.mes;
-  if (primera.esFin === true) return null;
+  const [primera, ultima] = marcas;
+  const inicio = primera.mes; // año sin mes: desde enero
+  // Año sin mes al final: se cuenta la diferencia de años → termina en diciembre del año anterior.
+  let fin = ultima.esFin === null ? ultima.mes - 1 : ultima.mes;
   fin = Math.min(fin, ahora);
-  const sinMes = primera.esFin === null || ultima.esFin === null;
-  if (fin < inicio) {
-    if (!sinMes) return null;
-    fin = Math.min(inicio, ahora); // mismo año sin meses: se cuenta un solo mes
-    if (fin < inicio) return null;
-  }
-  return { inicio, fin, sinMes };
+  if (fin < inicio) return null;
+  return { inicio, fin, sinMes: primera.esFin === null || ultima.esFin === null };
 }
 
 /** Meses totales de una lista de periodos, sin contar dos veces los traslapes. */

@@ -46,6 +46,8 @@ model Vacante {
   requisitosObligatorios String // JSON [{ id, texto }]
   requisitosDeseables    String // JSON [{ id, texto }]
   aniosMinimos           Int
+  /// ¿Las prácticas profesionales o el servicio social cuentan como experiencia?
+  cuentanPracticas       Boolean   @default(false)
   nivelEstudiosMinimo    String
   idiomas                String // JSON [{ idioma, nivel }]
   modalidad              String // PRESENCIAL | HIBRIDO | REMOTO

@@ -2,7 +2,7 @@
  * Fase 4 — Analiza los 7 CVs ficticios contra "Analista de Datos Jr." con la API real
  * y muestra la tabla de resultado esperado vs. obtenido.
  * Usa una base de datos y un storage temporales (nunca los de la app).
- * Requiere GROQ_API_KEY en el entorno.
+ * Requiere al menos un proveedor configurado (p. ej. GROQ_API_KEY y/o GEMINI_API_KEY) en el entorno.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -10,8 +10,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { CVS_FASE4, VACANTE_FASE4 } from "./cvs";
 
-if (!process.env.GROQ_API_KEY) {
-  console.error("Falta GROQ_API_KEY. Defínela en el entorno y vuelve a ejecutar.");
+const { proveedoresConfigurados } = await import("@/lib/analizador/proveedores");
+if (proveedoresConfigurados().length === 0) {
+  console.error("No hay proveedores de IA configurados (faltan claves *_API_KEY). Revisa .env.example.");
   process.exit(1);
 }
 
@@ -56,7 +57,7 @@ for (const cv of CVS_FASE4) {
       try {
         id = await analizarCv(actor, carga.id, vacante.id);
       } catch (error) {
-        if (intento >= 6 || !(error instanceof Error) || !error.message.includes("saturado")) throw error;
+        if (intento >= 6 || !(error instanceof Error) || !/saturad|no están disponibles|tardó más/.test(error.message)) throw error;
         console.error(`   límite de uso alcanzado; reintento ${intento} en 30 s…`);
         await new Promise((r) => setTimeout(r, 30_000));
       }
@@ -65,7 +66,7 @@ for (const cv of CVS_FASE4) {
     const r = JSON.parse(a.resultado);
     obtenido = calcularCategoria(a.veredicto, a.puntaje, umbrales);
     const niveles = r.requisitos.map((q: { id: string; nivel: number }) => `${q.id}:${q.nivel}`).join(" ");
-    detalle = `${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}${(r.experiencia.descartes ?? []).map((d: { puesto: string; motivo: string; cita: string }) => ` · descartado «${d.puesto}»: ${d.motivo} (cita: «${d.cita}»)`).join("")}${r.textoOcultoOmitido ? ` · texto oculto omitido: ${r.textoOcultoOmitido} caracteres` : ""}`;
+    detalle = `[${a.modelo}${r.anonimizado ? ", anonimizado" : ""}] ${a.puntaje} (O ${Math.round(a.puntajeO)} · D ${a.puntajeD === null ? "—" : Math.round(a.puntajeD)} · E ${Math.round(a.puntajeE)} · F ${Math.round(a.puntajeF)}) · ${niveles} · exp ${r.experiencia.meses} meses${r.instruccionesOmitidas ? ` · instrucciones ignoradas: ${r.instruccionesOmitidas}` : ""}${a.veredicto === "NO_VIABLE" ? ` · ${JSON.parse(a.motivosNoViable).join("; ")}` : ""}${(r.experiencia.descartes ?? []).map((d: { puesto: string; motivo: string; cita: string }) => ` · descartado «${d.puesto}»: ${d.motivo} (cita: «${d.cita}»)`).join("")}${r.textoOcultoOmitido ? ` · texto oculto omitido: ${r.textoOcultoOmitido} caracteres` : ""}`;
   } catch (error) {
     detalle = error instanceof Error ? error.message : String(error);
   }
@@ -78,7 +79,7 @@ for (const cv of CVS_FASE4) {
   await new Promise((r) => setTimeout(r, 10_000)); // espaciar llamadas por el límite de uso
 }
 
-console.log(`Modelo: ${process.env.GROQ_MODEL ?? "openai/gpt-oss-120b"} · Umbrales: ${JSON.stringify(umbrales)}\n`);
+console.log(`Proveedores: ${proveedoresConfigurados().map((p) => `${p.nombre} (${p.modelo})`).join(" → ")} · Umbrales: ${JSON.stringify(umbrales)}\n`);
 console.log("| CV | Esperado | Obtenido | ¿Coincide? | Puntaje y evidencia |");
 console.log("|---|---|---|---|---|");
 console.log(filas.join("\n"));

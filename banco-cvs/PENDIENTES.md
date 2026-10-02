@@ -178,3 +178,21 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Baja] "Avisa a un Admin" cuando quien lo ve ya es Admin. — Pendiente.
 - [Baja] Enlace "Saltar al contenido". — **Hecho.**
 - [Baja] Sin indicador de carga. — **Hecho** (`loading.tsx`).
+
+### Capa de proveedores con el SDK de OpenAI (decisión del usuario)
+
+- `src/lib/analizador/proveedores.ts` lee `IA_PROVEEDORES` (orden de respaldo) y, para cada nombre `N`, `N_API_KEY`, `N_BASE_URL`, `N_MODEL`, `N_ANONIMIZAR` y `N_FORMATO_JSON`. Para agregar un proveedor (por ejemplo OmniRoute) basta con configurarlo; no hay que tocar el código.
+- Si un proveedor responde 429, 5xx o falla por timeout o conexión, se pasa al siguiente. Si no tiene clave, se salta. El log solo registra el proveedor, el modelo, el tiempo y el código HTTP, nunca el contenido.
+- Antes de enviar un CV a un proveedor con `ANONIMIZAR=true` (Gemini por defecto), se quitan el nombre, el correo, el teléfono, la dirección y los identificadores (RUT/DNI/INE/CURP/RFC). Las citas se verifican contra el texto que vio ese proveedor.
+- **Media**: `gemini-2.5-flash`, el modelo por defecto que pidió el usuario, responde 404 para cuentas nuevas. Se probó con `GEMINI_MODEL=gemini-3.8-flash` y funciona. Falta decidir si se cambia el valor por defecto.
+- **Media (legal)**: falta el aviso de privacidad (LFPDPPP) que informe que los CV se envían a proveedores de IA externos. El plan gratuito de Gemini puede usar los datos para entrenar.
+- **Baja**: los planes gratuitos de Groq (429) y Gemini (503 intermitentes) saturan con facilidad cuando el volumen es alto. Para producción conviene un plan de pago o agregar más proveedores al respaldo.
+- Reglas del prompt del usuario que se adoptaron en el código:
+  - E = 0 si la experiencia es menor al mínimo;
+  - las fechas que solo tienen año cuentan la diferencia de años;
+  - un puesto sin fecha de inicio o de fin no se suma y aparece en Alertas;
+  - las prácticas y el servicio social solo cuentan si la vacante lo indica (campo nuevo `cuentanPracticas`, migración `20261002195824`);
+  - C1–C2 cuenta como avanzado;
+  - se agregó la sección Alertas.
+  
+  El prompt se adaptó para que la IA responda en JSON. El veredicto, el puntaje y la categoría siguen calculándose en código (regla crítica 1).

@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { NIVELES_ESTUDIO, NIVELES_IDIOMA, type NivelEstudio, type NivelIdioma } from "@/lib/catalogos";
 
-export const TIPOS_PUESTO = ["EMPLEO", "PRACTICAS", "FREELANCE"] as const;
+export const TIPOS_PUESTO = ["EMPLEO", "PRACTICAS", "SERVICIO_SOCIAL", "FREELANCE"] as const;
 export const ETIQUETA_TIPO_PUESTO: Record<(typeof TIPOS_PUESTO)[number], string> = {
   EMPLEO: "Empleo",
   PRACTICAS: "Prácticas profesionales",
+  SERVICIO_SOCIAL: "Servicio social",
   FREELANCE: "Independiente / freelance",
 };
 export const ESTATUS_ESTUDIOS = ["CONCLUIDO", "TITULADO", "EN_CURSO", "TRUNCO", "NO_ESPECIFICADO"] as const;
@@ -48,6 +49,8 @@ export const esquemaExtraccion = z.object({
   cualidades: z.array(z.object({ cualidad: z.string().max(300), cita: z.string().max(600) })).min(3).max(5),
   brechas: z.array(z.string().max(400)).max(10),
   preguntas: z.array(z.string().max(400)).min(2).max(3),
+  /** Instrucciones detectadas en el CV, fechas incompletas, información ambigua o contradictoria. */
+  alertas: z.array(z.string().max(400)).max(10),
 });
 
 export type Extraccion = z.infer<typeof esquemaExtraccion>;
@@ -63,6 +66,8 @@ export type VacanteEvaluada = {
   obligatorios: { id: string; texto: string }[];
   deseables: { id: string; texto: string }[];
   aniosMinimos: number;
+  /** ¿Las prácticas profesionales o el servicio social cuentan como experiencia? */
+  cuentanPracticas?: boolean;
   nivelEstudiosMinimo: NivelEstudio;
   idiomas: { idioma: string; nivel: NivelIdioma }[];
   modalidad: string;
@@ -132,4 +137,9 @@ export type ResultadoVerificado = {
   cualidadesDescartadas: number;
   brechas: string[];
   preguntas: string[];
+  /** Alertas del código (manipulación, fechas incompletas, puestos descartados) y de la IA. */
+  alertas?: string[];
+  /** Proveedor de IA que respondió y si recibió el CV anonimizado. */
+  proveedor?: string;
+  anonimizado?: boolean;
 };

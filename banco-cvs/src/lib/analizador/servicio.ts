@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
-import { ocultarDatosPersonales } from "./ocultar";
+import { anonimizar, ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
@@ -15,22 +15,41 @@ const MIN_TIEMPO_REINTENTO_MS = 5_000;
 /**
  * Paso 2 — Extracción con un solo reintento si el JSON no es válido.
  * El plazo de 60 s es total: el reintento solo usa el tiempo que queda.
+ * Devuelve también el texto exacto que vio el proveedor que respondió (para verificar las citas contra él).
  */
-export async function extraerEvidencia(vacante: VacanteEvaluada, textoOculto: string, fechaAnalisis: Date = new Date()) {
-  const usuario = mensajeUsuario(vacante, textoOculto, fechaAnalisis);
+export async function extraerEvidencia(
+  vacante: VacanteEvaluada,
+  textoOculto: string,
+  fechaAnalisis: Date = new Date(),
+  nombresConocidos: (string | null | undefined)[] = [],
+) {
+  const textoAnonimo = anonimizar(textoOculto, nombresConocidos);
+  const textoPara = (anonimo: boolean) => (anonimo ? textoAnonimo : textoOculto);
   const limite = Date.now() + TIEMPO_MAXIMO_MS;
   for (let intento = 1; intento <= 2; intento++) {
     const restante = limite - Date.now();
     if (restante < MIN_TIEMPO_REINTENTO_MS) throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
-    const { json, modelo } = await solicitarExtraccion(PROMPT_SISTEMA, usuario, restante);
+    const respuesta = await solicitarExtraccion(
+      PROMPT_SISTEMA,
+      (anonimo) => mensajeUsuario(vacante, textoPara(anonimo), fechaAnalisis),
+      restante,
+    );
     let datos: unknown;
     try {
-      datos = JSON.parse(json);
+      datos = JSON.parse(respuesta.json);
     } catch {
       continue;
     }
     const validado = esquemaExtraccion.safeParse(datos);
-    if (validado.success) return { extraccion: validado.data as Extraccion, modelo };
+    if (validado.success) {
+      return {
+        extraccion: validado.data as Extraccion,
+        modelo: respuesta.modelo,
+        proveedor: respuesta.proveedor,
+        anonimizado: respuesta.anonimizado,
+        textoVisto: textoPara(respuesta.anonimizado),
+      };
+    }
   }
   throw new ErrorApiAnalizador("La respuesta del análisis no tuvo el formato esperado.");
 }
@@ -44,6 +63,7 @@ export function vacanteEvaluada(v: {
   requisitosObligatorios: string;
   requisitosDeseables: string;
   aniosMinimos: number;
+  cuentanPracticas?: boolean;
   nivelEstudiosMinimo: string;
   idiomas: string;
   modalidad: string;
@@ -58,6 +78,7 @@ export function vacanteEvaluada(v: {
     obligatorios: leerRequisitos(v.requisitosObligatorios),
     deseables: leerRequisitos(v.requisitosDeseables),
     aniosMinimos: v.aniosMinimos,
+    cuentanPracticas: v.cuentanPracticas ?? false,
     nivelEstudiosMinimo: v.nivelEstudiosMinimo as NivelEstudio,
     idiomas: leerIdiomas(v.idiomas).map((i) => ({ idioma: i.idioma, nivel: i.nivel as NivelIdioma })),
     modalidad: v.modalidad,
@@ -85,20 +106,30 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   const { texto: textoOculto, omitidos } = neutralizarInstrucciones(ocultarDatosPersonales(cv.textoExtraido));
   const fechaAnalisis = new Date();
 
-  let extraccion: Extraccion;
-  let modelo: string;
+  let ext: Awaited<ReturnType<typeof extraerEvidencia>>;
   try {
-    ({ extraccion, modelo } = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis));
+    ext = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis, [cv.nombreCandidato]);
   } catch (error) {
     if (error instanceof ErrorApiAnalizador) throw new ErrorNegocio(`${error.motivo} Usa «Reintentar».`);
     throw error;
   }
+  const { extraccion, proveedor, anonimizado } = ext;
+  const modelo = `${proveedor}:${ext.modelo}`;
 
   const textoOcultoOmitido = Number(cv.textoExtraido.match(/\[TEXTO OCULTO OMITIDO: (\d+) caracteres/)?.[1] ?? 0);
+  // Las citas se verifican contra el texto exacto que vio el proveedor que respondió.
+  const verificado = verificarExtraccion(extraccion, evaluada, ext.textoVisto, fechaAnalisis);
+  const alertasCodigo = [
+    ...(textoOcultoOmitido ? [`El PDF tenía ${textoOcultoOmitido} caracteres en letra diminuta (posible texto oculto); se omitieron.`] : []),
+    ...(omitidos ? [`Se ignoraron ${omitidos} renglón(es) con texto que parece una instrucción al sistema.`] : []),
+  ];
   const resultado = {
-    ...verificarExtraccion(extraccion, evaluada, textoOculto, fechaAnalisis),
+    ...verificado,
     instruccionesOmitidas: omitidos,
     textoOcultoOmitido,
+    alertas: [...alertasCodigo, ...(verificado.alertas ?? [])],
+    proveedor,
+    anonimizado,
   };
   const calificacion = calificar(resultado);
 

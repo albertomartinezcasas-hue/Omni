@@ -31,6 +31,7 @@ export default async function PaginaEditarVacante({ params }: { params: Promise<
           requisitosObligatorios: vacante.obligatorios.map((r) => r.texto).join("\n"),
           requisitosDeseables: vacante.deseables.map((r) => r.texto).join("\n"),
           aniosMinimos: vacante.aniosMinimos,
+          cuentanPracticas: vacante.cuentanPracticas,
           nivelEstudiosMinimo: vacante.nivelEstudiosMinimo,
           idiomas: vacante.listaIdiomas,
           modalidad: vacante.modalidad,

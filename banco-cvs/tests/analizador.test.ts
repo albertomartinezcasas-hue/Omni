@@ -74,6 +74,7 @@ function extraccion(parcial: Partial<Extraccion> = {}): Extraccion {
     ],
     brechas: ["No muestra Excel avanzado", "Es soltera, puede viajar", "Confirmar al +52 55 1234 5678"],
     preguntas: ["¿Qué fórmulas de Excel usas a diario?", "¿Cómo optimizas una consulta SQL lenta?"],
+    alertas: [],
     ...parcial,
   };
 }
@@ -136,7 +137,7 @@ describe("Paso 1 — Ocultar datos de contacto y datos protegidos", () => {
     expect(mensaje.match(/<cv>/g)).toHaveLength(1);
     expect(mensaje.match(/<\/cv>/g)).toHaveLength(1);
     expect(mensaje.match(/<vacante>/g)).toHaveLength(1);
-    expect(mensaje).toContain('"fecha_de_analisis": "2026-10-02"');
+    expect(mensaje).toContain("<fecha_de_analisis>02/10/2026</fecha_de_analisis>");
     expect(mensaje).toMatch(/<\/vacante>\s*<cv>[\s\S]*<\/cv>/);
   });
 });
@@ -199,14 +200,14 @@ describe("Paso 2 — Extracción con un solo reintento", () => {
   });
 
   it("reintenta una vez si el JSON es inválido", async () => {
-    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m" }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m" });
+    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m", proveedor: "groq", anonimizado: false }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m", proveedor: "groq", anonimizado: false });
     const r = await extraerEvidencia(VACANTE, "texto", new Date());
     expect(r.modelo).toBe("m");
     expect(api).toHaveBeenCalledTimes(2);
   });
 
   it("si el JSON vuelve a fallar (o no cumple el esquema), lanza error", async () => {
-    api.mockResolvedValueOnce({ json: "{}", modelo: "m" }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m" });
+    api.mockResolvedValueOnce({ json: "{}", modelo: "m", proveedor: "groq", anonimizado: false }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m", proveedor: "groq", anonimizado: false });
     await expect(extraerEvidencia(VACANTE, "texto", new Date())).rejects.toThrow("no tuvo el formato esperado");
     expect(api).toHaveBeenCalledTimes(2);
   });
@@ -257,6 +258,8 @@ describe("Análisis completo (API simulada)", () => {
         ],
       })),
       modelo: "openai/gpt-oss-120b",
+      proveedor: "groq",
+      anonimizado: false,
     });
     for (const u of [usuario, admin]) {
       await simularSesion(u);
@@ -268,13 +271,13 @@ describe("Análisis completo (API simulada)", () => {
       expect(JSON.parse(a.motivosNoViable)).toEqual([
         "No se encontró evidencia de: Excel avanzado (la cita del análisis no coincide con el CV; revisar manualmente)",
       ]);
-      expect(a.modelo).toBe("openai/gpt-oss-120b");
+      expect(a.modelo).toBe("groq:openai/gpt-oss-120b");
       expect(a.creadoPorId).toBe(u.id);
       expect(a.vacanteVersion).toBe(1);
       expect(JSON.parse(a.vacanteSnapshot).obligatorios).toHaveLength(2);
     }
     // Lo que se envió a la API no contiene datos de contacto ni datos protegidos.
-    const enviado = api.mock.calls[0][1];
+    const enviado = api.mock.calls[0][1](false);
     for (const dato of ["laura.ficticia@", "1234 5678", "GODE561231", "linkedin.com", "soltera", "27 años", "Calle Ficticia"]) {
       expect(enviado).not.toContain(dato);
     }

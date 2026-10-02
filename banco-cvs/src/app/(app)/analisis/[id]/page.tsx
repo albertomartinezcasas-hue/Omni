@@ -148,7 +148,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           ))}
         </dl>
         <p className="text-xs text-slate-600">
-          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)} con el modelo {a.modelo}. Umbrales vigentes:
+          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)} con el modelo {a.modelo}{r.anonimizado ? " (el CV se envió anonimizado)" : ""}. Umbrales vigentes:
           Excelente ≥ {a.umbrales.excelente}, Bueno ≥ {a.umbrales.bueno}, Pasable ≥ {a.umbrales.pasable}.
         </p>
       </section>
@@ -284,6 +284,14 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
               <ul className="list-disc space-y-1 pl-5 text-sm">{r.brechas.map((b) => <li key={b}>{b}</li>)}</ul>
             ) : (
               <p className="text-sm text-slate-700">Sin brechas frente a la vacante.</p>
+            )}
+          </section>
+          <section className={`${tarjeta} space-y-2`} aria-labelledby="alertas">
+            <h2 id="alertas" className="text-lg font-bold text-slate-900">Alertas</h2>
+            {(r.alertas?.length ?? 0) > 0 ? (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-amber-950">{r.alertas!.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            ) : (
+              <p className="text-sm text-slate-700">Ninguna.</p>
             )}
           </section>
           <section className={`${tarjeta} space-y-2`} aria-labelledby="preguntas">

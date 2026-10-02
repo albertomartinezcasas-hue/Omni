@@ -17,6 +17,10 @@ function sonAnios(coincidencia: string) {
   return grupos.every((g) => g.length === 4 && Number(g) >= 1950 && Number(g) <= ANIO_ACTUAL + 1);
 }
 
+// RUT chileno (12.345.678-9) y DNI/INE con etiqueta.
+const RUT = /\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b/g;
+const DNI = /\b(?:DNI|D\.N\.I\.|RUT|R\.U\.T\.|INE|NSS|pasaporte|c[eé]dula)\s*(?:n[uú]m(?:ero)?\.?|no\.?|#)?\s*[:：]?\s*[A-Z0-9][A-Z0-9.\-]{5,17}\b/gi;
+
 // Teléfonos: de 10 a 13 dígitos con separadores cortos (espacios, puntos, guiones, paréntesis),
 // p. ej. "55 12 34 56 78", "(55) 1234-5678", "+52 1 55 1234 5678". Los rangos de años no coinciden.
 const TELEFONO = /(?<![\d\w])\+?\(?\d(?:[\s.\-()]{0,2}\d){9,12}(?!\d)/g;
@@ -31,7 +35,7 @@ const ESTADO_CIVIL = /(?<![\p{L}])(?:solter[oa]|casad[oa]|divorciad[oa]|viud[oa]
 const DIRECCION =
   /\b(?:C\.?\s?P\.?\s*\d{5}|Col(?:onia)?\.?\s+[A-ZÁÉÍÓÚÑ][^\n,;]{1,40}|(?:Calle|Av(?:enida)?\.?|Calz(?:ada)?\.?|Blvd\.?|Privada)\s+[^\n,;]{1,40}?\s#?\d+[A-Z]?)/gu;
 
-export const MARCAS = ["[CORREO]", "[TELÉFONO]", "[URL]", "[CURP]", "[RFC]", "[DATO PERSONAL OMITIDO]"] as const;
+export const MARCAS = ["[CORREO]", "[TELÉFONO]", "[URL]", "[CURP]", "[RFC]", "[ID]", "[DATO PERSONAL OMITIDO]"] as const;
 
 export function ocultarDatosPersonales(texto: string): string {
   return texto
@@ -45,7 +49,39 @@ export function ocultarDatosPersonales(texto: string): string {
     .replace(URL_CON_ESQUEMA, "[URL]")
     .replace(DOMINIO, "[URL]")
     .replace(USUARIO_RED, "[URL]")
+    .replace(DNI, "[ID]")
+    .replace(RUT, "[ID]")
     .replace(CURP, "[CURP]")
     .replace(RFC, "[RFC]")
     .replace(TELEFONO, (coincidencia) => (sonAnios(coincidencia) ? coincidencia : "[TELÉFONO]"));
+}
+
+const ENCABEZADOS = /^(curr[ií]cul[ou]m( vitae)?|cv|hoja de vida|resumen|perfil|experiencia|educaci[oó]n|formaci[oó]n|habilidades|idiomas|datos personales|contacto)$/i;
+const PARECE_NOMBRE = /^[\p{Lu}][\p{L}'’.-]+(?:\s+[\p{L}'’.-]+){1,4}$/u;
+
+/**
+ * Anonimización adicional para proveedores que pueden usar los datos para entrenar (p. ej. el plan gratuito de Gemini):
+ * además de lo que oculta `ocultarDatosPersonales`, quita el nombre del candidato.
+ * Se aplica sobre texto ya ocultado.
+ */
+export function anonimizar(texto: string, nombresConocidos: (string | null | undefined)[] = []) {
+  const renglones = texto.split("\n");
+  // El nombre suele ser el primer renglón con texto: 2 a 5 palabras, sin dígitos ni marcas.
+  const primero = renglones.findIndex((r) => r.trim());
+  const nombres = nombresConocidos.filter((n): n is string => !!n && n.trim().length >= 3).map((n) => n.trim());
+  if (primero >= 0) {
+    const r = renglones[primero].trim();
+    if (PARECE_NOMBRE.test(r) && !/\d|\[/.test(r) && !ENCABEZADOS.test(r) && r.length <= 60) {
+      nombres.push(r);
+      renglones[primero] = "[NOMBRE]";
+    }
+  }
+  let salida = renglones
+    .join("\n")
+    .replace(/^[^\S\n]*(?:nombre(?: completo)?|candidat[oa])[^\S\n]*[:：].*$/gim, "[NOMBRE]");
+  for (const nombre of nombres) {
+    const escapado = nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    salida = salida.replace(new RegExp(escapado, "giu"), "[NOMBRE]");
+  }
+  return salida;
 }

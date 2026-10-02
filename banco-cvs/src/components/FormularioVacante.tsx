@@ -21,6 +21,7 @@ export type ValoresVacante = {
   requisitosObligatorios: string;
   requisitosDeseables: string;
   aniosMinimos: number;
+  cuentanPracticas: boolean;
   nivelEstudiosMinimo: string;
   idiomas: { idioma: string; nivel: string }[];
   modalidad: string;
@@ -34,6 +35,7 @@ const VACIA: ValoresVacante = {
   requisitosObligatorios: "",
   requisitosDeseables: "",
   aniosMinimos: 0,
+  cuentanPracticas: false,
   nivelEstudiosMinimo: "LICENCIATURA",
   idiomas: [],
   modalidad: "HIBRIDO",
@@ -147,6 +149,25 @@ export function FormularioVacante({
               <option key={m} value={m}>{ETIQUETA_MODALIDAD[m]}</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <input
+          id="cuentanPracticas"
+          name="cuentanPracticas"
+          type="checkbox"
+          defaultChecked={valores.cuentanPracticas}
+          aria-describedby="ayuda-practicas"
+          className="mt-1 h-4 w-4"
+        />
+        <div>
+          <label htmlFor="cuentanPracticas" className={etiqueta}>
+            Las prácticas profesionales y el servicio social cuentan como experiencia
+          </label>
+          <p id="ayuda-practicas" className={ayuda}>
+            Si no lo marcas, se muestran en el análisis pero no suman años de experiencia.
+          </p>
         </div>
       </div>
 

@@ -7,7 +7,7 @@ const FECHA = new Date("2026-10-02T12:00:00Z");
 const VACANTE: VacanteEvaluada = {
   id: "v", version: 1, titulo: "Analista de Datos Jr.", area: "BI", descripcion: "Reportes",
   obligatorios: [{ id: "O1", texto: "SQL" }], deseables: [], aniosMinimos: 1, nivelEstudiosMinimo: "LICENCIATURA",
-  idiomas: [], modalidad: "HIBRIDO", ubicacion: "CDMX",
+  idiomas: [], modalidad: "HIBRIDO", ubicacion: "CDMX", cuentanPracticas: true,
 };
 const CV = [
   "Ana Ficticia Ruiz",
@@ -29,6 +29,7 @@ function extraccion(parcial: Partial<Extraccion>): Extraccion {
     cualidades: [],
     brechas: [],
     preguntas: [],
+    alertas: [],
     ...parcial,
   };
 }
@@ -38,15 +39,20 @@ describe("Fechas y años (calculados en código)", () => {
     ["ene 2023 - dic 2025", 3],
     ["03/2021 – 08/2021", 0.5],
     ["mar 2025 - actual", 1.7], // hasta oct 2026 (fecha del análisis en CDMX)
-    // Sin mes, criterio conservador: inicio en diciembre, fin en enero.
-    ["2019 - 2022", 2.2], // dic 2019 – ene 2022 = 26 meses
-    ["2024 - presente", 1.9], // dic 2024 – oct 2026 = 23 meses
-    ["2025 - actual", 0.9], // dic 2025 – oct 2026 = 11 meses
-    ["2024 - 2024", 0.1], // un mes
-    ["desde 2021", 4.9], // dic 2021 – oct 2026
+    // Solo años: se cuenta la diferencia ("2019 – 2021" = 2 años).
+    ["2019 - 2021", 2],
+    ["2019 - 2022", 3],
+    ["2024 - presente", 2.8], // ene 2024 – oct 2026 = 34 meses
+    ["2025 - actual", 1.8], // ene 2025 – oct 2026 = 22 meses
+    ["desde 2021", 5.8], // ene 2021 – oct 2026
   ])("%s → %s años", (cita, anios) => {
     const p = periodoDeCita(cita, FECHA)!;
     expect(aniosSinTraslapes([p])).toBe(anios);
+  });
+
+  it("sin fecha de inicio o de fin (un solo año o mes) no se suma", () => {
+    expect(periodoDeCita("Analista (2021)", FECHA)).toBeNull();
+    expect(periodoDeCita("Analista (2024 - 2024)", FECHA)).toBeNull();
   });
 
   it("marca los periodos sin mes y usa la fecha de CDMX (no UTC) para «actual»", () => {

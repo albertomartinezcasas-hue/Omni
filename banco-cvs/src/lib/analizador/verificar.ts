@@ -153,13 +153,22 @@ export function verificarExtraccion(
     }
     if (coincidenciasProtegidas(`${p.puesto} ${p.empresa}`).length) return descartar(p, "contiene datos protegidos");
     const periodo = periodoDeCita(p.cita, fechaAnalisis);
-    if (!periodo) return descartar(p, "la cita no trae un periodo de fechas único");
+    if (!periodo) return descartar(p, "falta la fecha de inicio o de fin (o hay más de un periodo); no se sumó");
     vistas.add(clave);
     return [{ ...p, periodo }];
   });
   // Solo suman los puestos que la IA consideró relevantes; los demás quedan visibles con su justificación.
-  const relevantes = puestos.filter((p) => p.relevante);
-  const noRelevantes = puestos.filter((p) => !p.relevante);
+  // Prácticas profesionales y servicio social solo suman si la vacante lo indica.
+  const cuentaPorTipo = (p: { tipo: string }) =>
+    vacante.cuentanPracticas || (p.tipo !== "PRACTICAS" && p.tipo !== "SERVICIO_SOCIAL");
+  const relevantes = puestos.filter((p) => p.relevante && cuentaPorTipo(p));
+  const noRelevantes = puestos
+    .filter((p) => !p.relevante || !cuentaPorTipo(p))
+    .map((p) =>
+      p.relevante
+        ? { ...p, justificacion: `${p.tipo === "PRACTICAS" ? "Prácticas profesionales" : "Servicio social"}: la vacante no las cuenta como experiencia` }
+        : p,
+    );
   const anios = aniosSinTraslapes(relevantes.map((p) => p.periodo));
   const meses = mesesSinTraslapes(relevantes.map((p) => p.periodo));
 
@@ -220,6 +229,7 @@ export function verificarExtraccion(
 
   const nombreVerificado =
     extraccion.nombreCandidato.valor &&
+    !extraccion.nombreCandidato.valor.includes("[") &&
     existe(extraccion.nombreCandidato.cita) &&
     normalizarParaCita(extraccion.nombreCandidato.cita!).includes(normalizarParaCita(extraccion.nombreCandidato.valor)) &&
     coincidenciasProtegidas(extraccion.nombreCandidato.valor).length === 0;
@@ -261,5 +271,9 @@ export function verificarExtraccion(
     cualidadesDescartadas: extraccion.cualidades.length - cualidades.length,
     brechas: [...brechasBase, ...brechasIa.filter((b) => !brechasBase.includes(b))],
     preguntas: extraccion.preguntas.map(textoLibreSeguro).filter((t): t is string => !!t),
+    alertas: [
+      ...descartes.map((d) => `Puesto no sumado — ${d.puesto} · ${d.empresa}: ${d.motivo}.`),
+      ...(extraccion.alertas ?? []).map(textoLibreSeguro).filter((t): t is string => !!t),
+    ],
   };
 }

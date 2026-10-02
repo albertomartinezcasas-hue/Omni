@@ -194,7 +194,7 @@ export const CVS_FASE4: CvPrueba[] = [
     archivo: "08-fernando-original-no-relevante.pdf",
     esperado: "NO_VIABLE",
     calculo:
-      "CV 06 original: su único puesto (Asistente de Ventas de mostrador) no aplica ningún requisito → no es experiencia relevante → 0 meses < 1 año → NO VIABLE por requisito, con el puesto visible como «no considerado relevante» y su justificación.",
+      "CV 06 original: su único puesto (Asistente de Ventas de mostrador) no aplica ningún requisito → no es experiencia relevante → 0 años < 1 → NO VIABLE por requisito (E = 0), con el puesto visible como «no contado» y su justificación.",
     lineas: [
       "FERNANDO FICTICIO RAMOS",
       "fernando.ficticio@correo-ficticio.mx",

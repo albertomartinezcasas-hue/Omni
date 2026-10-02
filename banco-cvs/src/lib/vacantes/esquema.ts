@@ -43,6 +43,7 @@ export const esquemaVacante = z
     .int({ error: "Los años deben ser un número entero." })
     .min(0, { error: "Los años no pueden ser negativos." })
     .max(40),
+  cuentanPracticas: z.preprocess((v) => v === true || v === "on" || v === "true" || v === "SI", z.boolean()),
   nivelEstudiosMinimo: z.enum(NIVELES_ESTUDIO, { error: "Selecciona el nivel de estudios." }),
   idiomas: z.array(esquemaIdioma).max(5, { error: "Máximo 5 idiomas." }),
   modalidad: z.enum(MODALIDADES, { error: "Selecciona la modalidad." }),

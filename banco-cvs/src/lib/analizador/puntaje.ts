@@ -8,9 +8,10 @@ export const PESOS = { O: 0.4, D: 0.25, E: 0.2, F: 0.15 } as const;
 
 const promedio = (valores: number[]) => valores.reduce((a, b) => a + b, 0) / valores.length;
 
-/** E = mín(100, 70 + 30 × (años − mínimo) / máx(mínimo, 1)), acotado a ≥ 0. */
+/** E = mín(100, 70 + 30 × (años − mínimo) / máx(mínimo, 1)); si los años son menores al mínimo, E = 0. */
 export function puntajeExperiencia(anios: number, minimo: number) {
-  return Math.max(0, Math.min(100, 70 + (30 * (anios - minimo)) / Math.max(minimo, 1)));
+  if (anios < minimo) return 0;
+  return Math.min(100, 70 + (30 * (anios - minimo)) / Math.max(minimo, 1));
 }
 
 /** Estudios: cumple o supera = 100; inferior o no especificado = 0. Sin requisito = 100. */
@@ -69,21 +70,20 @@ export function calificar(r: ResultadoVerificado): Calificacion {
     );
   if (r.experiencia.anios < r.experiencia.minimo) {
     const notas = [
-      `se verificaron ${describirMeses(r.experiencia.meses ?? Math.round(r.experiencia.anios * 12))}`,
       ...(r.experiencia.puestosDescartados > 0
-        ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto descartado" : "puestos descartados"} por falta de fechas o cita verificable; revisar el CV`]
+        ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto no se sumó" : "puestos no se sumaron"} por fechas incompletas o cita no verificable; revisar el CV`]
         : []),
       ...(r.experiencia.puestos.some((p) => p.fechasSinMes) ? ["fechas sin mes; confirmar en entrevista"] : []),
       ...((r.experiencia.puestosNoRelevantes?.length ?? 0) > 0
         ? [
-            `no se consideraron relevantes: ${r.experiencia
+            `no contados: ${r.experiencia
               .puestosNoRelevantes!.map((p) => `${p.puesto} (${describirMeses(p.meses)})`)
               .join(", ")}; revisar`,
           ]
         : []),
     ];
     motivosNoViable.push(
-      `No se encontró evidencia de: ${r.experiencia.minimo} ${r.experiencia.minimo === 1 ? "año" : "años"} de experiencia relevante (${notas.join("; ")})`,
+      `Experiencia relevante: ${r.experiencia.anios.toFixed(1)} años; mínimo requerido: ${r.experiencia.minimo}${notas.length ? ` (${notas.join("; ")})` : ""}`,
     );
   }
 

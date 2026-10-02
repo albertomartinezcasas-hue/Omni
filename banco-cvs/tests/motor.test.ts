@@ -39,11 +39,11 @@ describe("Fórmula E (experiencia)", () => {
     [3, 2, 85],
     [4, 2, 100],
     [10, 2, 100], // tope en 100
-    [1, 2, 55],
+    [1, 2, 0], // años < mínimo → E = 0
     [0, 0, 70],
     [0.5, 0, 85], // máx(mínimo, 1) evita dividir entre 0
     [2, 0, 100],
-    [0, 5, 40], // 70 + 30·(0 − 5)/5
+    [0, 5, 0], // años < mínimo → E = 0
   ])("años=%s, mínimo=%s → %s", (anios, minimo, esperado) => {
     expect(puntajeExperiencia(anios, minimo)).toBeCloseTo(esperado, 6);
   });
@@ -122,7 +122,7 @@ describe("Veredicto NO VIABLE", () => {
     const c = calificar(resultado({ obligatorios: [2], anios: 1.5, minimo: 2 }));
     expect(c.veredicto).toBe("NO_VIABLE");
     expect(c.motivosNoViable).toEqual([
-      "No se encontró evidencia de: 2 años de experiencia relevante (se verificaron 1 año 6 meses)",
+      "Experiencia relevante: 1.5 años; mínimo requerido: 2",
     ]);
   });
 

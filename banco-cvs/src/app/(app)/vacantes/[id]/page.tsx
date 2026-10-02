@@ -98,6 +98,8 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
         <dl className="grid gap-2 text-sm md:grid-cols-[14rem_1fr]">
           <dt className="font-semibold text-slate-700">Experiencia relevante mínima</dt>
           <dd>{vacante.aniosMinimos} {vacante.aniosMinimos === 1 ? "año" : "años"}</dd>
+          <dt className="font-semibold text-slate-700">Prácticas y servicio social</dt>
+          <dd>{vacante.cuentanPracticas ? "Cuentan como experiencia" : "No cuentan como experiencia"}</dd>
           <dt className="font-semibold text-slate-700">Estudios mínimos</dt>
           <dd>{ETIQUETA_ESTUDIO[vacante.nivelEstudiosMinimo as NivelEstudio]}</dd>
           <dt className="font-semibold text-slate-700">Idiomas</dt>
