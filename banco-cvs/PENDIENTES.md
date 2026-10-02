@@ -184,7 +184,7 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - `src/lib/analizador/proveedores.ts` lee `IA_PROVEEDORES` (orden de respaldo) y, para cada nombre `N`, `N_API_KEY`, `N_BASE_URL`, `N_MODEL`, `N_ANONIMIZAR` y `N_FORMATO_JSON`. Para agregar un proveedor (por ejemplo OmniRoute) basta con configurarlo; no hay que tocar el código.
 - Si un proveedor responde 429, 5xx o falla por timeout o conexión, se pasa al siguiente. Si no tiene clave, se salta. El log solo registra el proveedor, el modelo, el tiempo y el código HTTP, nunca el contenido.
 - Antes de enviar un CV a un proveedor con `ANONIMIZAR=true` (Gemini por defecto), se quitan el nombre, el correo, el teléfono, la dirección y los identificadores (RUT/DNI/INE/CURP/RFC). Las citas se verifican contra el texto que vio ese proveedor.
-- **Media**: `gemini-2.5-flash`, el modelo por defecto que pidió el usuario, responde 404 para cuentas nuevas. Se probó con `GEMINI_MODEL=gemini-3.8-flash` y funciona. Falta decidir si se cambia el valor por defecto.
+- **Media**: `gemini-2.5-flash`, el modelo por defecto que pidió el usuario, responde 404 para cuentas nuevas. Se probó con `GEMINI_MODEL=gemini-3.8-flash` y funciona. **Resuelto:** por decisión del usuario, el valor por defecto ahora es `gemini-3.8-flash`.
 - **Media (legal)**: falta el aviso de privacidad (LFPDPPP) que informe que los CV se envían a proveedores de IA externos. El plan gratuito de Gemini puede usar los datos para entrenar.
 - **Baja**: los planes gratuitos de Groq (429) y Gemini (503 intermitentes) saturan con facilidad cuando el volumen es alto. Para producción conviene un plan de pago o agregar más proveedores al respaldo.
 - Reglas del prompt del usuario que se adoptaron en el código:
@@ -211,3 +211,9 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - Por decisión del usuario, se quitó la capa de anonimización (nombre, domicilios sin etiqueta y `*_ANONIMIZAR`). La ronda 2 del revisor-seguridad fue RECHAZADO por fugas de nombre en esa capa, y el usuario prefirió quitarla en lugar de hacer una tercera ronda.
 - Se mantiene el ocultamiento base para **todos** los proveedores, incluido Gemini: correo, teléfono, URL, CURP, RFC, RUT/DNI/INE, domicilio con etiqueta, edad, estado civil y demás datos protegidos.
 - **Alta (riesgo aceptado por el usuario)**: Gemini recibe el nombre del candidato y los domicilios que no llevan etiqueta. El plan gratuito de Gemini puede usar esos datos para entrenar. Antes de producción, se recomienda un plan de pago de Gemini (sin uso para entrenamiento) y el aviso de privacidad (LFPDPPP) que informe del envío a proveedores de IA externos.
+
+#### Todos los modelos gratuitos de Gemini en cadena (decisión del usuario)
+
+- `GEMINI_MODEL` (y cualquier `*_MODEL`) acepta una lista separada por comas. El cupo gratuito de Gemini es por modelo: `gemini-3.8-flash` solo permite 20 peticiones al día. Por eso, si un modelo responde 429, 5xx, 404 o se agota el tiempo, se usa el siguiente.
+- Orden por defecto: 3.8-flash → 3.7-flash → 3.6-flash → 3.5-flash → flash-latest → 3.5-flash-lite → 3.1-flash-lite → flash-lite-latest. Se probó en vivo: con el cupo de 3.8 agotado, respondió 3.7-flash.
+- **Media**: los modelos "lite" son menos precisos con las citas. En la validación de 9 CV, `gemini-3.5-flash-lite` acertó 7 de 9: en el 07 y el 09 dio citas que no coinciden con el CV. El código las rechazó y marcó "revisar manualmente", así que el error es conservador y no infla puntajes. En esos casos conviene que un reclutador lo revise o que lo reanalice con un modelo flash.

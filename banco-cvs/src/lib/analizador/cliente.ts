@@ -42,7 +42,8 @@ export type RespuestaIA = { json: string; modelo: string; proveedor: string };
 /** Errores por los que se pasa al siguiente proveedor: 429, 5xx, tiempo agotado o sin conexión. */
 function esRecuperable(error: unknown) {
   if (error instanceof OpenAI.APIConnectionError) return true; // incluye APIConnectionTimeoutError
-  if (error instanceof OpenAI.APIError) return error.status === 429 || (error.status ?? 0) >= 500;
+  // 404: el modelo ya no existe o no está disponible para la cuenta; se prueba el siguiente de la lista.
+  if (error instanceof OpenAI.APIError) return error.status === 429 || error.status === 404 || (error.status ?? 0) >= 500;
   return false;
 }
 
@@ -105,7 +106,7 @@ export async function solicitarExtraccion(
         return { json: "", modelo: p.modelo, proveedor: p.nombre };
       }
       if (error instanceof ErrorApiAnalizador) throw error;
-      console.warn(`[analizador] ${p.nombre} falló (${describir(error)})${esRecuperable(error) ? "; se intenta el siguiente" : ""}`);
+      console.warn(`[analizador] ${p.nombre} (${p.modelo}) falló (${describir(error)})${esRecuperable(error) ? "; se intenta el siguiente" : ""}`);
       ultimo = error;
       if (!esRecuperable(error)) break;
     }

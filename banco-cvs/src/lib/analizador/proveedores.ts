@@ -5,7 +5,7 @@
  * Para cada nombre N (en mayúsculas):
  *   N_API_KEY      clave (si falta, el proveedor se salta)
  *   N_BASE_URL     URL base compatible con OpenAI
- *   N_MODEL        modelo
+ *   N_MODEL        modelo, o varios separados por comas: se prueban en orden (el cupo gratuito es por modelo)
  *   N_FORMATO_JSON "json_schema" (por defecto) o "json_object"
  *
  * Agregar un proveedor no requiere tocar código; p. ej. OmniRoute:
@@ -25,7 +25,20 @@ export type ProveedorIA = {
 /** Valores por defecto de proveedores conocidos (la clave nunca tiene valor por defecto). */
 const CONOCIDOS: Record<string, Partial<Omit<ProveedorIA, "nombre" | "apiKey">>> = {
   groq: { baseURL: "https://api.groq.com/openai/v1", modelo: "openai/gpt-oss-120b" },
-  gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", modelo: "gemini-2.5-flash" },
+  // Todos los modelos de texto gratuitos de Gemini, del más capaz al más ligero: si uno agota su cupo, se usa el siguiente.
+  gemini: {
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    modelo: [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-flash-latest",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-lite-latest",
+    ].join(","),
+  },
 };
 
 const ORDEN_POR_DEFECTO = "groq,gemini";
@@ -64,13 +77,16 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
       continue;
     }
     const formatoVar = variable(env, nombre, "FORMATO_JSON");
-    lista.push({
-      nombre,
-      baseURL,
-      modelo,
-      apiKey,
-      formato: formatoVar === "json_object" ? "json_object" : "json_schema",
-    });
+    const modelos = [...new Set(modelo.split(",").map((m) => m.trim()).filter(Boolean))];
+    for (const m of modelos) {
+      lista.push({
+        nombre,
+        baseURL,
+        modelo: m,
+        apiKey,
+        formato: formatoVar === "json_object" ? "json_object" : "json_schema",
+      });
+    }
   }
   return lista;
 }
