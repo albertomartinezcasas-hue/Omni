@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import {
   cambiarRolAccion,
   crearUsuarioAccion,
@@ -25,11 +25,13 @@ export type FilaUsuario = {
 };
 
 export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[]; actualId: string }) {
+  const formulario = useRef<HTMLFormElement>(null);
   const [temporal, setTemporal] = useState<{ correo: string; contrasena: string } | null>(null);
   const [estado, crear, pendiente] = useActionState(
     async (previo: { error?: string } | undefined, formData: FormData) => {
       const resultado = await crearUsuarioAccion(previo, formData);
       if (!resultado.ok) return { error: resultado.error };
+      formulario.current?.reset();
       // La contraseña temporal solo vive en este estado hasta que el Admin la oculta.
       setTemporal({ correo: resultado.datos.correo, contrasena: resultado.datos.contrasenaTemporal });
       return undefined;
@@ -46,7 +48,15 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
       <section className={`${tarjeta} space-y-4`} aria-labelledby="alta">
         <h2 id="alta" className="text-lg font-bold text-slate-900">Dar de alta</h2>
         {estado?.error && <Aviso tipo="error">{estado.error}</Aviso>}
-        <form action={crear} className="grid items-end gap-4 md:grid-cols-[1fr_1fr_10rem_auto]">
+        <form
+          ref={formulario}
+          // Envío manual: con `action` React 19 vacía el formulario aunque haya errores.
+          onSubmit={(e) => {
+            e.preventDefault();
+            const datos = new FormData(e.currentTarget);
+            startTransition(() => crear(datos));
+          }}
+          className="grid items-end gap-4 md:grid-cols-[1fr_1fr_10rem_auto]">
           <div>
             <label htmlFor="nombre" className={etiqueta}>Nombre completo</label>
             <input id="nombre" name="nombre" required className={campo} />

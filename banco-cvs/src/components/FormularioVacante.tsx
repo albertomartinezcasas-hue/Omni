@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import type { ResultadoAccion } from "@/lib/acciones";
 import {
   ETIQUETA_ESTUDIO,
@@ -64,7 +64,15 @@ export function FormularioVacante({
   }, [estado, router]);
 
   return (
-    <form action={enviar} className={`${tarjeta} space-y-5`}>
+    <form
+      // Envío manual: con `action` React 19 vacía el formulario aunque haya errores.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const datos = new FormData(e.currentTarget);
+        startTransition(() => enviar(datos));
+      }}
+      className={`${tarjeta} space-y-5`}
+    >
       {aviso && <Aviso tipo="info">{aviso}</Aviso>}
       {estado && !estado.ok && <Aviso tipo="error">{estado.error}</Aviso>}
 

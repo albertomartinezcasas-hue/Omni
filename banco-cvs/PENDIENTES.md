@@ -70,3 +70,8 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 
 ### Dependencias
 - [Media] `npm audit`: 4 vulnerabilidades altas en `mysql2`, que llega como dependencia transitiva del CLI `prisma` (solo desarrollo; la app usa SQLite y no carga `mysql2`). — Pendiente: actualizar cuando Prisma publique una corrección estable.
+
+### Prueba en navegador (Playwright, fin de la Fase 1)
+- [Alta] Tras un error de validación, React 19 vaciaba el formulario de vacante y el de alta de usuario, y se perdía lo capturado. — **Corregido** con envío manual vía `startTransition`, verificado en el navegador.
+- [Baja] El botón nativo del selector de archivos dice "Choose Files" (texto del navegador, no de la app). — Pendiente (Fase 3: botón propio en español).
+- [Baja] Auth.js escribe `[auth][error] CredentialsSignin` en el log del servidor en cada intento fallido (solo el código, sin correo ni contraseña). — Pendiente: silenciar con un `logger` propio si molesta en operación.
