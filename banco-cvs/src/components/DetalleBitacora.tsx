@@ -1,4 +1,4 @@
-import { ETIQUETA_CATEGORIA, ETIQUETA_ROL, type Categoria, type Rol } from "@/lib/catalogos";
+import { ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, ETIQUETA_ROL, type Categoria, type MotivoAjuste, type Rol } from "@/lib/catalogos";
 
 const ETIQUETA_CAMPO: Record<string, string> = {
   motivo: "Motivo",
@@ -38,7 +38,7 @@ const ETIQUETA_CAMPO: Record<string, string> = {
   filtros: "Filtros",
 };
 
-const ETIQUETA_FILTRO: Record<string, string> = { desde: "desde", hasta: "hasta", area: "área", vacanteId: "vacante (id)" };
+const ETIQUETA_FILTRO: Record<string, string> = { desde: "desde", hasta: "hasta", area: "área", vacante: "vacante" };
 
 const MOTIVOS: Record<string, string> = {
   CUENTA_INEXISTENTE: "Cuenta inexistente",
@@ -52,13 +52,14 @@ const categoria = (c: unknown) => ETIQUETA_CATEGORIA[c as Categoria] ?? String(c
 function valor(clave: string, v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
   if (typeof v === "boolean") return v ? "Sí" : "No";
-  if (clave === "motivo") return MOTIVOS[String(v)] ?? String(v);
+  if (clave === "motivo") return MOTIVOS[String(v)] ?? ETIQUETA_MOTIVO_AJUSTE[v as MotivoAjuste] ?? String(v);
   if (clave.startsWith("rol")) return ETIQUETA_ROL[v as Rol] ?? String(v);
   if (clave === "categoriaCalculada") return categoria(v);
   if (clave === "hasta") return new Date(String(v)).toLocaleString("es-MX", { timeZone: "America/Mexico_City" });
   if (clave === "filtros" && v && typeof v === "object") {
     const partes = Object.entries(v as Record<string, unknown>)
-      .filter(([, x]) => x)
+      // El id de la vacante solo se muestra si no se guardó su título.
+      .filter(([k, x]) => x && !(k === "vacanteId" && "vacante" in (v as object)))
       .map(([k, x]) => `${ETIQUETA_FILTRO[k] ?? k}: ${String(x)}`);
     return partes.length ? partes.join(", ") : "Sin filtros";
   }

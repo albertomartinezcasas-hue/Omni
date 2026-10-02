@@ -333,3 +333,17 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - la carga inicial toma el título de la vacante tal como estaba al analizar;
   - el filtro de fechas se explica en la nota;
   - los filtros se muestran legibles en la bitácora.
+
+#### Revisión del historial (ronda 2) y corrección aprobada por el usuario
+
+- **revisor-seguridad: RECHAZADO** (ronda 2). El usuario aprobó aplicar la corrección y hacer la ronda 3.
+  - Corregido (Alta): la migración `ajuste_motivo_y_expiradas` aplica el seudónimo a los registros de CVs ya eliminados (análisis en nulo, un seudónimo por CV).
+  - Corregido (Media): al eliminar un CV, las fechas del historial se redondean al día (CDMX). Así no se pueden cruzar con eventos viejos de la bitácora por la hora exacta. El promedio de resolución usa `horasHastaAjuste`, que se guarda al ajustar.
+  - Corregido (Baja): sin `Sec-Fetch-Site`, la exportación exige un `Origin` propio.
+  - **Riesgo aceptado (decisión del usuario)**: los eventos viejos de la bitácora en bases anteriores a este cambio pueden contener nombres. Hoy solo hay datos de prueba; no se tocan los triggers de solo inserción.
+- **experto-reclutamiento: APROBADO CON AJUSTES**
+  - Corregido (Alta): un CV pendiente de revisión que se elimina por plazo queda como «expiró sin revisión», con su propia métrica en rojo y un aviso en el grupo «Pendiente de revisión». Se respeta el plazo de 1 día que decidió el usuario.
+  - Corregido (Media): motivo de ajuste de catálogo (sin datos del candidato), que se conserva en el historial y en el CSV.
+  - Corregido (Baja): «Revisiones resueltas» con su número, aparte de las que expiraron.
+- **ux-ui-reviewer: APROBADO CON AJUSTES**
+  - Corregido: «CV eliminado (sin datos del candidato)»; la exportación guarda el título de la vacante en la bitácora; la primera columna fija tiene borde.

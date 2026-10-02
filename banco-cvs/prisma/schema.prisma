@@ -120,6 +120,8 @@ model AjusteCategoria {
   analisisId String
   analisis   Analisis @relation(fields: [analisisId], references: [id], onDelete: Cascade)
   categoria  String // EXCELENTE | BUENO | PASABLE | NO_VIABLE (el ajuste manual no usa REVISION)
+  /// Motivo de catálogo (sin datos del candidato): se conserva en el historial cuando el CV se elimina.
+  motivo     String   @default("OTRO")
   comentario String
   autorId    String
   autor      Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
@@ -177,6 +179,12 @@ model RegistroAnalisis {
   /// Quién hizo el último ajuste manual y cuándo (personal de RR. HH., no del candidato).
   ajustadaPor    String?
   fechaAjuste    DateTime?
+  /// Motivo de catálogo del último ajuste manual.
+  motivoAjuste   String?
+  /// Horas entre el análisis y el último ajuste (se guarda aparte porque las fechas se redondean al día al purgar).
+  horasHastaAjuste Float?
+  /// El CV se eliminó por plazo mientras seguía «Pendiente de revisión».
+  expiroSinRevision Boolean @default(false)
   /// El CV traía instrucciones o texto oculto.
   posibleManipulacion Boolean @default(false)
   modelo         String

@@ -13,7 +13,7 @@ type Filtros = { desde?: string; hasta?: string; area?: string; vacante?: string
 const porcentaje = (parte: number, total: number) => (total ? `${Math.round((parte / total) * 100)} %` : "—");
 
 function TablaSegmentos({ id, titulo: tituloTabla, filas, conArea = false }: { id: string; titulo: string; filas: (Segmento & { area?: string })[]; conArea?: boolean }) {
-  const primera = "sticky left-0 z-10 bg-white";
+  const primera = "sticky left-0 z-10 bg-white shadow-[1px_0_0_var(--color-slate-200)]";
   return (
     // Desplazable en móvil: recibe el foco para poder moverse con el teclado.
     <section className={tarjetaTabla} aria-labelledby={id} tabIndex={0}>
@@ -151,8 +151,13 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
             <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[18rem_1fr]">
               <dt className="font-semibold text-slate-700">Pendientes de revisión sin resolver</dt>
               <dd>{resumen.pendientesRevision}</dd>
-              <dt className="font-semibold text-slate-700">Tiempo promedio para resolver una revisión</dt>
-              <dd>{resumen.horasPromedioRevision === null ? "—" : `${resumen.horasPromedioRevision.toFixed(1)} horas`}</dd>
+              <dt className="font-semibold text-slate-700">Revisiones resueltas</dt>
+              <dd>
+                {resumen.revisionesResueltas}
+                {resumen.horasPromedioRevision !== null && ` (en promedio, ${resumen.horasPromedioRevision.toFixed(1)} horas)`}
+              </dd>
+              <dt className="font-semibold text-slate-700">Expiraron sin revisión (el CV se eliminó por plazo)</dt>
+              <dd className={resumen.expiradasSinRevision > 0 ? "font-semibold text-red-800" : undefined}>{resumen.expiradasSinRevision}</dd>
               <dt className="font-semibold text-slate-700">Análisis con un modelo de IA ligero</dt>
               <dd>{resumen.conModeloLigero} ({porcentaje(resumen.conModeloLigero, total.analisis)})</dd>
               <dt className="font-semibold text-slate-700">Análisis de CVs con posible manipulación</dt>
@@ -166,6 +171,20 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
                     {resumen.cambiosManuales.map((c) => (
                       <li key={`${c.de}-${c.a}`}>
                         {ETIQUETA_CATEGORIA[c.de]} → {ETIQUETA_CATEGORIA[c.a]}: <span className="font-semibold">{c.cantidad}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+              <dt className="font-semibold text-slate-700">Motivos de los ajustes</dt>
+              <dd>
+                {resumen.motivosAjuste.length === 0 ? (
+                  "Ninguno"
+                ) : (
+                  <ul className="space-y-0.5">
+                    {resumen.motivosAjuste.map((m) => (
+                      <li key={m.motivo}>
+                        {m.motivo}: <span className="font-semibold">{m.cantidad}</span>
                       </li>
                     ))}
                   </ul>

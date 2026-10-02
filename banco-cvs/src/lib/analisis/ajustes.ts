@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { registrarEvento, type Actor } from "@/lib/bitacora";
 import { calcularCategoria } from "@/lib/analizador/categoria";
-import { CATEGORIAS_AJUSTE } from "@/lib/catalogos";
+import { CATEGORIAS_AJUSTE, MOTIVOS_AJUSTE } from "@/lib/catalogos";
 import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 
 export const esquemaAjuste = z.object({
   categoria: z.enum(CATEGORIAS_AJUSTE, { error: "Selecciona una categoría." }),
+  motivo: z.enum(MOTIVOS_AJUSTE, { error: "Selecciona el motivo del ajuste." }),
   comentario: z
     .string()
     .trim()
@@ -36,12 +37,19 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
   const categoriaAnterior = analisis.ajustes[0]?.categoria ?? categoriaCalculada;
   return db.$transaction(async (tx) => {
     const ajuste = await tx.ajusteCategoria.create({
-      data: { analisisId, categoria: datos.categoria, comentario: datos.comentario, autorId: actor.id },
+      data: { analisisId, categoria: datos.categoria, motivo: datos.motivo, comentario: datos.comentario, autorId: actor.id },
     });
     // El historial refleja la categoría vigente (la calculada al analizar se conserva aparte).
     await tx.registroAnalisis.updateMany({
       where: { analisisId },
-      data: { categoriaFinal: datos.categoria, ajustada: true, ajustadaPor: actor.nombre, fechaAjuste: ajuste.creadoEn },
+      data: {
+        categoriaFinal: datos.categoria,
+        ajustada: true,
+        ajustadaPor: actor.nombre,
+        fechaAjuste: ajuste.creadoEn,
+        motivoAjuste: datos.motivo,
+        horasHastaAjuste: (ajuste.creadoEn.getTime() - analisis.creadoEn.getTime()) / 3_600_000,
+      },
     });
     await registrarEvento(
       {
@@ -53,6 +61,7 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
           vacante: analisis.vacante.titulo,
           categoriaAnterior,
           categoria: datos.categoria,
+          motivo: datos.motivo,
           categoriaCalculada,
           puntaje: analisis.puntaje,
           umbrales,

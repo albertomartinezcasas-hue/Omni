@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useRef } from "react";
 import { ajustarCategoriaAccion } from "@/acciones/analisis";
-import { CATEGORIAS_AJUSTE, ETIQUETA_CATEGORIA, type Categoria } from "@/lib/catalogos";
+import { CATEGORIAS_AJUSTE, ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, MOTIVOS_AJUSTE, type Categoria } from "@/lib/catalogos";
 import { Aviso } from "./Aviso";
 import { ayuda, boton, campo, etiqueta } from "./estilos";
 
@@ -44,7 +44,17 @@ export function FormularioAjuste({ analisisId, actual }: { analisisId: string; a
         </select>
       </div>
       <div>
-        <label htmlFor="comentario" className={etiqueta}>Motivo del ajuste</label>
+        <label htmlFor="motivo" className={etiqueta}>Motivo del ajuste</label>
+        <select id="motivo" name="motivo" defaultValue="" required aria-describedby="ayuda-motivo" className={campo}>
+          <option value="" disabled>Elige el motivo…</option>
+          {MOTIVOS_AJUSTE.map((m) => (
+            <option key={m} value={m}>{ETIQUETA_MOTIVO_AJUSTE[m]}</option>
+          ))}
+        </select>
+        <p id="ayuda-motivo" className={ayuda}>Queda en el historial de auditoría aunque el CV se elimine.</p>
+      </div>
+      <div>
+        <label htmlFor="comentario" className={etiqueta}>Explicación</label>
         <textarea
           id="comentario"
           name="comentario"
@@ -55,7 +65,7 @@ export function FormularioAjuste({ analisisId, actual }: { analisisId: string; a
           className={campo}
         />
         <p id="ayuda-comentario" className={ayuda}>
-          Obligatorio, mínimo 10 caracteres. Queda visible junto con la categoría calculada y en la bitácora.
+          Obligatorio, mínimo 10 caracteres. Queda visible junto con la categoría calculada mientras el CV exista.
         </p>
       </div>
       <button type="submit" className={boton.primario} disabled={pendiente}>

@@ -86,7 +86,7 @@ describe("Vista por vacante", () => {
     await simularSesion(reclutadora);
     const { grupos } = await consultarCandidatos(vacanteId, 1);
     const id = grupos.PASABLE[0].analisisId;
-    const r = await ajustarCategoriaAccion(id, undefined, form({ categoria: "BUENO", comentario: "Excelente referencia laboral verificada." }));
+    const r = await ajustarCategoriaAccion(id, undefined, form({ categoria: "BUENO", motivo: "ENTREVISTA", comentario: "Excelente referencia laboral verificada." }));
     expect(r.ok).toBe(true);
     const despues = await consultarCandidatos(vacanteId, 1);
     expect(despues.grupos.BUENO.map((f) => f.candidato)).toEqual(["Beto Ficticio", "Dario Ficticio"]);
@@ -106,7 +106,7 @@ describe("Vista por vacante", () => {
   it("el detalle avisa del ajuste hecho en un análisis anterior", async () => {
     await simularSesion(reclutadora);
     const viejo = await db.analisis.findFirstOrThrow({ where: { cvId: cvs["Beto Ficticio"] } });
-    await ajustarCategoriaAccion(viejo.id, undefined, form({ categoria: "EXCELENTE", comentario: "Entrevista técnica sobresaliente." }));
+    await ajustarCategoriaAccion(viejo.id, undefined, form({ categoria: "EXCELENTE", motivo: "ENTREVISTA", comentario: "Entrevista técnica sobresaliente." }));
     const nuevo = await analisis(cvs["Beto Ficticio"], 74);
     const detalle = await consultarAnalisis(nuevo.id);
     expect(detalle!.ajustesPrevios[0]).toMatchObject({ categoria: "EXCELENTE", comentario: "Entrevista técnica sobresaliente." });

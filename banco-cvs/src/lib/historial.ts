@@ -1,6 +1,6 @@
 // Historial de análisis (estadística y auditoría). Lee solo RegistroAnalisis: sin datos de candidatos.
 import { esModeloLigero } from "@/lib/analizador/proveedores";
-import { CATEGORIAS, ETIQUETA_CATEGORIA, type Categoria } from "@/lib/catalogos";
+import { CATEGORIAS, ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, type Categoria, type MotivoAjuste } from "@/lib/catalogos";
 import { db } from "@/lib/db";
 
 export type FiltrosHistorial = { desde?: string; hasta?: string; area?: string; vacanteId?: string };
@@ -81,8 +81,11 @@ export function resumirHistorial(registros: Registro[]) {
 
   // Ajustes manuales: de qué categoría a cuál, y cuánto tardó en resolverse un «Pendiente de revisión».
   const cambios = new Map<string, number>();
+  const motivos = new Map<string, number>();
   const horasRevision: number[] = [];
   let ajustadas = 0;
+  let expiradas = 0;
+  let pendientes = 0;
   for (const r of vigentes.values()) {
     const categoria = comoCategoria(r.categoriaFinal);
     for (const s of [total, segArea(r), segVacante(r)]) {
@@ -90,11 +93,16 @@ export function resumirHistorial(registros: Registro[]) {
       s.porCategoria[categoria] += 1;
       s.cvsIds.add(r.cvId);
     }
+    if (categoria === "REVISION") {
+      if (r.expiroSinRevision) expiradas += 1;
+      else pendientes += 1;
+    }
     if (r.ajustada) {
       ajustadas += 1;
       const clave = `${comoCategoria(r.categoria)}>${categoria}`;
       cambios.set(clave, (cambios.get(clave) ?? 0) + 1);
-      if (r.categoria === "REVISION" && r.fechaAjuste) horasRevision.push((r.fechaAjuste.getTime() - r.fecha.getTime()) / 3_600_000);
+      if (r.motivoAjuste) motivos.set(r.motivoAjuste, (motivos.get(r.motivoAjuste) ?? 0) + 1);
+      if (r.categoria === "REVISION" && r.horasHastaAjuste !== null) horasRevision.push(r.horasHastaAjuste);
     }
   }
 
@@ -104,8 +112,15 @@ export function resumirHistorial(registros: Registro[]) {
     ajustadas,
     conModeloLigero,
     conManipulacion,
-    pendientesRevision: total.porCategoria.REVISION,
+    /** Pendientes de revisión que aún pueden resolverse (su CV sigue existiendo). */
+    pendientesRevision: pendientes,
+    /** CVs eliminados por plazo mientras seguían pendientes de revisión. */
+    expiradasSinRevision: expiradas,
+    revisionesResueltas: horasRevision.length,
     horasPromedioRevision: horasRevision.length ? horasRevision.reduce((a, b) => a + b, 0) / horasRevision.length : null,
+    motivosAjuste: [...motivos.entries()]
+      .map(([motivo, cantidad]) => ({ motivo: ETIQUETA_MOTIVO_AJUSTE[motivo as MotivoAjuste] ?? motivo, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad),
     cambiosManuales: [...cambios.entries()]
       .map(([clave, cantidad]) => {
         const [de, a] = clave.split(">") as [Categoria, Categoria];
@@ -143,13 +158,16 @@ export function celdaCsv(v: string | number) {
 export function historialACsv(registros: Registro[]) {
   const encabezado = [
     "Fecha (CDMX)", "Área", "Vacante", "Veredicto", "Puntaje", "Categoría al analizar", "Categoría vigente",
-    "Ajustada", "Ajustada por", "Fecha del ajuste (CDMX)", "Posible manipulación", "Modelo", "Analizado por",
+    "Ajustada", "Ajustada por", "Fecha del ajuste (CDMX)", "Motivo del ajuste", "Expiró sin revisión",
+    "Posible manipulación", "Modelo", "Analizado por",
   ];
   const filas = registros.map((r) =>
     [
       fechaCdmx(r.fecha), r.area, r.vacanteTitulo, VEREDICTO[r.veredicto] ?? r.veredicto, r.puntaje,
       ETIQUETA_CATEGORIA[comoCategoria(r.categoria)], ETIQUETA_CATEGORIA[comoCategoria(r.categoriaFinal)],
       r.ajustada ? "Sí" : "No", r.ajustadaPor ?? "", r.fechaAjuste ? fechaCdmx(r.fechaAjuste) : "",
+      r.motivoAjuste ? (ETIQUETA_MOTIVO_AJUSTE[r.motivoAjuste as MotivoAjuste] ?? r.motivoAjuste) : "",
+      r.expiroSinRevision ? "Sí" : "No",
       r.posibleManipulacion ? "Sí" : "No", r.modelo, r.usuarioNombre,
     ]
       .map(celdaCsv)

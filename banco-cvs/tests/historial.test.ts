@@ -100,7 +100,7 @@ describe("El historial sobrevive a la purga y refleja los ajustes", () => {
       },
     });
 
-    await ajustarCategoria(usuario, analisis.id, { categoria: "BUENO", comentario: "Experiencia confirmada en entrevista" });
+    await ajustarCategoria(usuario, analisis.id, { categoria: "BUENO", motivo: "ENTREVISTA", comentario: "Experiencia confirmada en entrevista" });
     expect(await db.registroAnalisis.findUniqueOrThrow({ where: { analisisId: analisis.id } })).toMatchObject({
       categoria: "PASABLE",
       categoriaFinal: "BUENO",
@@ -120,6 +120,10 @@ describe("El historial sobrevive a la purga y refleja los ajustes", () => {
     expect(conservado).toMatchObject({ analisisId: null, categoriaFinal: "BUENO", area: "Datos" });
     expect(conservado.cvId).not.toBe(subida.id);
     expect(conservado.cvId).toMatch(/^seudonimo-/);
+    // Fechas redondeadas al día (CDMX) y motivo de catálogo conservado.
+    expect(conservado.fecha.toISOString()).toMatch(/T06:00:00\.000Z$/);
+    expect(conservado.motivoAjuste).toBe("ENTREVISTA");
+    expect(conservado.horasHastaAjuste).toBeGreaterThan(0);
     // La bitácora (solo inserción) conserva los eventos y nunca guardó datos del candidato.
     const eventos = await db.eventoBitacora.findMany({ where: { OR: [{ entidadId: subida.id }, { entidadId: analisis.id }] } });
     expect(eventos.length).toBeGreaterThanOrEqual(2);
@@ -140,5 +144,18 @@ describe("Eliminación manual", () => {
     expect((await db.registroAnalisis.findUniqueOrThrow({ where: { id: r.id } })).cvId).toMatch(/^seudonimo-/);
     const eventos = await db.eventoBitacora.findMany({ where: { entidadId: subida.id } });
     for (const e of eventos) expect(e.detalle ?? "").not.toContain("Irma");
+  });
+});
+
+describe("Pendientes de revisión que expiran", () => {
+  it("al purgar un CV pendiente de revisión, el historial lo marca como «expiró sin revisión»", async () => {
+    const subida = await subirCv(usuario, { nombreArchivo: "p.pdf", contenido: crearPdf(textoCv("Paz", "paz@correo.mx")), forzar: true });
+    if (subida.estado !== "GUARDADO") throw new Error("no se guardó");
+    const r = await registro({ cvId: subida.id, vacanteId: "v7", area: "Finanzas", categoriaFinal: "REVISION" });
+    await db.cv.update({ where: { id: subida.id }, data: { creadoEn: new Date(Date.now() - 3 * DIA) } });
+    await purgarCvsVencidos(new Date(), 1);
+    expect((await db.registroAnalisis.findUniqueOrThrow({ where: { id: r.id } })).expiroSinRevision).toBe(true);
+    const resumen = resumirHistorial(await registrosDelHistorial({ area: "Finanzas" }));
+    expect(resumen).toMatchObject({ expiradasSinRevision: 1, pendientesRevision: 0 });
   });
 });

@@ -51,3 +51,15 @@ export const ETIQUETA_CATEGORIA: Record<Categoria, string> = {
   REVISION: "Pendiente de revisión",
   NO_VIABLE: "No viable",
 };
+
+/** Motivo del ajuste manual (catálogo, sin datos del candidato): se conserva en el historial. */
+export const MOTIVOS_AJUSTE = ["EVIDENCIA_NO_DETECTADA", "EVIDENCIA_INCORRECTA", "RELEVANCIA", "FECHAS", "ENTREVISTA", "OTRO"] as const;
+export type MotivoAjuste = (typeof MOTIVOS_AJUSTE)[number];
+export const ETIQUETA_MOTIVO_AJUSTE: Record<MotivoAjuste, string> = {
+  EVIDENCIA_NO_DETECTADA: "El análisis no detectó evidencia que sí está en el CV",
+  EVIDENCIA_INCORRECTA: "El análisis tomó como evidencia algo que no lo es",
+  RELEVANCIA: "Relevancia de la experiencia",
+  FECHAS: "Fechas o años de experiencia",
+  ENTREVISTA: "Información confirmada en entrevista",
+  OTRO: "Otro",
+};

@@ -131,6 +131,7 @@ describe("Matriz de permisos", () => {
       await simularSesion(u);
       const d = new FormData();
       d.set("categoria", "BUENO");
+      d.set("motivo", "ENTREVISTA");
       d.set("comentario", "La experiencia en ventas compensa el nivel de inglés.");
       expect((await ajustarCategoriaAccion(analisisId, undefined, d)).ok).toBe(true);
     }
@@ -215,8 +216,11 @@ describe("Matriz de permisos", () => {
     expect((await exportarHistorial(new Request("http://localhost:3000/api/historial"))).status).toBe(403);
     await simularSesion(admin);
     expect((await consultarHistorial({})).resumen.total).toBeDefined();
-    const r = await exportarHistorial(new Request("http://localhost:3000/api/historial"));
+    const propia = { headers: { "sec-fetch-site": "same-origin" } };
+    const r = await exportarHistorial(new Request("http://localhost:3000/api/historial", propia));
     expect(r.status).toBe(200);
+    // Sin Sec-Fetch-Site se exige un Origin propio.
+    expect((await exportarHistorial(new Request("http://localhost:3000/api/historial"))).status).toBe(403);
     expect(r.headers.get("content-type")).toContain("text/csv");
     // Otro sitio no puede provocar la exportación.
     const ajeno = new Request("http://localhost:3000/api/historial", { headers: { "sec-fetch-site": "cross-site" } });
