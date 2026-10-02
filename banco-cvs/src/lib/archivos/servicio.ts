@@ -192,7 +192,7 @@ export async function eliminarCv(actor: Actor, cvId: string) {
   if (!cv) throw new ErrorNegocio("El CV no existe.");
   await db.$transaction(async (tx) => {
     // Historial con seudónimo y bitácora sin datos del candidato; el evento de eliminación tampoco los guarda.
-    await olvidarCvs(tx, [cvId]);
+    await olvidarCvs(tx, [cvId], "MANUAL");
     await tx.cv.delete({ where: { id: cvId } });
     await registrarEvento({ actor, accion: "CV_ELIMINADO", entidadTipo: "CV", entidadId: cvId }, tx);
   });

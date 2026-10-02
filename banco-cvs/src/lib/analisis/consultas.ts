@@ -1,5 +1,6 @@
 import { categoriaMostrada, type AjusteVigente } from "@/lib/analizador/categoria";
 import { esModeloLigero } from "@/lib/analizador/proveedores";
+import { diasDeConservacion, fechaDeEliminacion } from "@/lib/archivos/conservacion";
 import type { ResultadoVerificado, VacanteEvaluada } from "@/lib/analizador/tipos";
 import { CATEGORIAS, type Categoria } from "@/lib/catalogos";
 import { db } from "@/lib/db";
@@ -49,6 +50,8 @@ export type FilaCandidato = {
   desactualizado: boolean;
   /** El candidato se opuso al análisis con IA: no se puede re-analizar. */
   sinAnalisisIA: boolean;
+  /** Cuándo se eliminará el CV por el plazo de conservación (null si el plazo no es válido). */
+  seElimina: Date | null;
   categoria: ReturnType<typeof categoriaMostrada>;
   /** Resumen para comparar sin abrir cada análisis. */
   clave: {
@@ -68,10 +71,24 @@ export type FilaCandidato = {
  */
 export async function candidatosDeVacante(vacanteId: string, versionActual: number) {
   const umbrales = await obtenerUmbrales();
+  const dias = diasDeConservacion();
   const analisis = await db.analisis.findMany({
     where: { vacanteId },
     orderBy: { creadoEn: "desc" },
-    include: { cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true, sinAnalisisIA: true } }, ...incluirAjuste },
+    include: {
+      cv: {
+        select: {
+          id: true,
+          nombreCandidato: true,
+          nombreArchivo: true,
+          sinAnalisisIA: true,
+          creadoEn: true,
+          // Último análisis contra cualquier vacante: define cuándo se elimina el CV.
+          analisis: { orderBy: { creadoEn: "desc" }, take: 1, select: { creadoEn: true } },
+        },
+      },
+      ...incluirAjuste,
+    },
   });
   const vistos = new Set<string>();
   const filas: FilaCandidato[] = [];
@@ -92,6 +109,10 @@ export async function candidatosDeVacante(vacanteId: string, versionActual: numb
       creadoEn: a.creadoEn,
       desactualizado: a.vacanteVersion !== versionActual,
       sinAnalisisIA: a.cv.sinAnalisisIA,
+      seElimina:
+        dias === null
+          ? null
+          : fechaDeEliminacion(new Date(Math.max(a.cv.creadoEn.getTime(), a.cv.analisis[0]?.creadoEn.getTime() ?? 0)), dias),
       categoria: categoriaMostrada(a, umbrales, ajusteVigente(a.ajustes)),
       clave: resumenClave(JSON.parse(a.resultado) as ResultadoVerificado),
     });

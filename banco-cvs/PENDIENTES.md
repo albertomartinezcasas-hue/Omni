@@ -347,3 +347,14 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Corregido (Baja): «Revisiones resueltas» con su número, aparte de las que expiraron.
 - **ux-ui-reviewer: APROBADO CON AJUSTES**
   - Corregido: «CV eliminado (sin datos del candidato)»; la exportación guarda el título de la vacante en la bitácora; la primera columna fija tiene borde.
+
+#### Revisión del historial (ronda 3): los tres expertos aprueban
+
+- **revisor-seguridad: APROBADO.**
+  - Corregido (Baja): `horasHastaAjuste` se guarda en horas enteras.
+  - Corregido (Baja): una eliminación manual no cuenta como «expiró sin revisión».
+- **experto-reclutamiento: APROBADO.**
+  - Corregido (Media): los pendientes de revisión muestran «Expira en X h» en la tabla de candidatos.
+  - Corregido (Baja): solo el resultado vigente de cada CV y vacante puede «expirar».
+  - **Baja**: vigilar el porcentaje de ajustes con motivo «Otro».
+- **ux-ui-reviewer: APROBADO CON AJUSTES** (ronda 2, sin hallazgos Alta). Todos sus hallazgos están corregidos.

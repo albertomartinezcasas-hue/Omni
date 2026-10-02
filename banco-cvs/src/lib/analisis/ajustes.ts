@@ -48,7 +48,8 @@ export async function ajustarCategoria(actor: Actor, analisisId: string, entrada
         ajustadaPor: actor.nombre,
         fechaAjuste: ajuste.creadoEn,
         motivoAjuste: datos.motivo,
-        horasHastaAjuste: (ajuste.creadoEn.getTime() - analisis.creadoEn.getTime()) / 3_600_000,
+        // Horas enteras: la diferencia exacta permitiría cruzarlo con las fechas de la bitácora.
+        horasHastaAjuste: Math.round((ajuste.creadoEn.getTime() - analisis.creadoEn.getTime()) / 3_600_000),
       },
     });
     await registrarEvento(

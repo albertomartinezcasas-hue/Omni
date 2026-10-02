@@ -51,7 +51,7 @@ PRAGMA defer_foreign_keys=OFF;
 
 -- Horas hasta el último ajuste, para los registros que ya tenían uno.
 UPDATE "RegistroAnalisis"
-SET "horasHastaAjuste" = (julianday("fechaAjuste") - julianday("fecha")) * 24
+SET "horasHastaAjuste" = ROUND((julianday("fechaAjuste") - julianday("fecha")) * 24)
 WHERE "fechaAjuste" IS NOT NULL;
 
 -- Registros de CVs que ya se eliminaron antes de existir el seudónimo: se desligan igual que en la purga.

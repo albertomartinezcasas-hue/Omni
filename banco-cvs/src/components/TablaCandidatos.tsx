@@ -49,6 +49,13 @@ function EvidenciaClave({ c }: { c: FilaCandidato["clave"] }) {
   );
 }
 
+/** «Expira en X h» para los pendientes de revisión: el CV se elimina por el plazo de conservación. */
+function tiempoRestante(seElimina: Date) {
+  const horas = (seElimina.getTime() - Date.now()) / 3_600_000;
+  if (horas <= 1) return "Expira en menos de 1 h: revísalo ya";
+  return `Expira en ${Math.floor(horas)} h si no se revisa`;
+}
+
 export function TablaCandidatos({
   grupos,
   vacanteId,
@@ -123,6 +130,9 @@ export function TablaCandidatos({
                             {f.motivos[0]}
                             {f.motivos.length > 1 ? ` (+${f.motivos.length - 1})` : ""}
                           </span>
+                        )}
+                        {f.categoria.final === "REVISION" && f.seElimina && (
+                          <span className="mt-1 block text-xs font-semibold text-red-800">{tiempoRestante(f.seElimina)}</span>
                         )}
                       </td>
                       <td className={`${celda} text-right text-lg font-bold`}>{f.puntaje}</td>

@@ -50,7 +50,7 @@ export async function purgarCvsVencidos(ahora: Date = new Date(), dias: number |
     const borrados = lista.filter((c) => ids.has(c.id));
     if (borrados.length === 0) return [];
     // Antes de borrar: historial con seudónimos y bitácora sin datos del candidato.
-    await olvidarCvs(tx, [...ids]);
+    await olvidarCvs(tx, [...ids], "PLAZO");
     await tx.cv.deleteMany({ where: { id: { in: [...ids] } } });
     if (borrados.length > 0) {
       await registrarEvento(

@@ -17,13 +17,16 @@ export function inicioDelDiaCdmx(fecha: Date) {
  * - el id del análisis queda en nulo y las fechas se redondean al día, para no poder cruzarlo con la bitácora;
  * - si seguía «Pendiente de revisión», queda marcado como «expiró sin revisión».
  */
-export async function olvidarCvs(tx: ClienteDb, cvIds: string[]) {
+export async function olvidarCvs(tx: ClienteDb, cvIds: string[], motivo: "PLAZO" | "MANUAL") {
   for (const cvId of cvIds) {
     const seudonimo = `seudonimo-${randomUUID()}`;
     const registros = await tx.registroAnalisis.findMany({
       where: { cvId },
-      select: { id: true, fecha: true, fechaAjuste: true, categoriaFinal: true },
+      select: { id: true, fecha: true, fechaAjuste: true, categoriaFinal: true, vacanteId: true },
     });
+    // Solo el resultado vigente (el más reciente por vacante) puede «expirar sin revisión».
+    const vigentePorVacante = new Map<string, string>();
+    for (const r of [...registros].sort((a, b) => a.fecha.getTime() - b.fecha.getTime())) vigentePorVacante.set(r.vacanteId, r.id);
     for (const r of registros) {
       await tx.registroAnalisis.update({
         where: { id: r.id },
@@ -32,7 +35,8 @@ export async function olvidarCvs(tx: ClienteDb, cvIds: string[]) {
           analisisId: null,
           fecha: inicioDelDiaCdmx(r.fecha),
           fechaAjuste: r.fechaAjuste ? inicioDelDiaCdmx(r.fechaAjuste) : null,
-          expiroSinRevision: r.categoriaFinal === "REVISION",
+          // Solo una eliminación por plazo cuenta como «expiró sin revisión» (no la que hace un Admin a mano).
+          expiroSinRevision: motivo === "PLAZO" && r.categoriaFinal === "REVISION" && vigentePorVacante.get(r.vacanteId) === r.id,
         },
       });
     }
