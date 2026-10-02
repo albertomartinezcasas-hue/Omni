@@ -39,11 +39,14 @@ export const ETIQUETA_MODALIDAD: Record<Modalidad, string> = {
   REMOTO: "Remoto",
 };
 
-export const CATEGORIAS = ["EXCELENTE", "BUENO", "PASABLE", "NO_VIABLE"] as const;
+export const CATEGORIAS = ["EXCELENTE", "BUENO", "PASABLE", "REVISION", "NO_VIABLE"] as const;
 export type Categoria = (typeof CATEGORIAS)[number];
+/** Al ajustar manualmente se decide una categoría final: «Pendiente de revisión» no es una opción. */
+export const CATEGORIAS_AJUSTE = ["EXCELENTE", "BUENO", "PASABLE", "NO_VIABLE"] as const;
 export const ETIQUETA_CATEGORIA: Record<Categoria, string> = {
   EXCELENTE: "Excelente",
   BUENO: "Bueno",
   PASABLE: "Pasable",
+  REVISION: "Pendiente de revisión",
   NO_VIABLE: "No viable",
 };

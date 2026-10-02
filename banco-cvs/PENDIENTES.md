@@ -230,9 +230,9 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 
 #### experto-reclutamiento: APROBADO CON AJUSTES (hallazgos Alta pendientes de la decisión del usuario, porque cambian reglas del veredicto)
 
-- **Alta (decisión)**: un obligatorio omitido por la IA produce un NO VIABLE sin aviso. Propuesta: "Pendiente de revisión" en lugar de NO VIABLE cuando el análisis lo hizo un modelo lite o cuando hay citas no verificadas.
-- **Alta (decisión)**: la relevancia de los puestos la decide solo la IA y puede dejar E=0. Propuesta: marcar "revisar" si, sumando los puestos no relevantes, se alcanza el mínimo.
-- **Alta (decisión, contradice una regla del usuario)**: la regla "2019–2021 = 2 años" junto con E=0 puede descartar a alguien por meses. Propuesta: "confirmar en entrevista" cuando la lectura máxima de las fechas cumple el mínimo.
+- **Corregido (Alta, aprobado por el usuario)**: veredicto nuevo «Pendiente de revisión» (`REVISION`) en lugar de NO VIABLE cuando un obligatorio falta porque la cita de la IA no coincide con el CV, o porque lo analizó un modelo lite.
+- **Corregido (Alta, aprobado por el usuario)**: «Pendiente de revisión» cuando, sumando los puestos que la IA juzgó no relevantes, se alcanza el mínimo de experiencia. Una causa firme (por ejemplo, un obligatorio ausente con modelo completo) mantiene el NO VIABLE. Al ajustar a mano, «Pendiente de revisión» no es una opción: el reclutador elige la categoría final.
+- **Alta (el usuario decidió no aplicarla)**: la regla "2019–2021 = 2 años" junto con E=0 puede descartar a alguien por meses. Se mantiene la regla del usuario.
 - **Alta (riesgo aceptado)**: LFPDPPP; los datos van a planes gratuitos fuera de México. Falta el aviso de privacidad.
 - **Media**:
   - un puesto de un solo año ("2022") cuenta cero;

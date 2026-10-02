@@ -138,6 +138,43 @@ describe("Veredicto NO VIABLE", () => {
   });
 });
 
+describe("Pendiente de revisión (en lugar de NO VIABLE cuando una persona debe confirmar)", () => {
+  it("si la cita de un obligatorio no coincide con el CV", () => {
+    const r = resultado({ obligatorios: [2, 0], anios: 5, minimo: 2 });
+    r.requisitos[1].citaNoVerificada = true;
+    const c = calificar(r);
+    expect(c.veredicto).toBe("REVISION");
+    expect(calcularCategoria(c.veredicto, c.puntaje, UMBRALES_POR_DEFECTO)).toBe("REVISION");
+  });
+
+  it("si un modelo ligero no encontró un obligatorio; con un modelo completo es NO VIABLE", () => {
+    const r = resultado({ obligatorios: [2, 0], anios: 5, minimo: 2 });
+    expect(calificar(r, { modeloLigero: true }).veredicto).toBe("REVISION");
+    expect(calificar(r, { modeloLigero: true }).motivosNoViable[0]).toContain("modelo ligero");
+    expect(calificar(r).veredicto).toBe("NO_VIABLE");
+  });
+
+  it("si sumando los puestos que la IA juzgó no relevantes se alcanza el mínimo", () => {
+    const r = resultado({ obligatorios: [2], anios: 0.5, minimo: 2 });
+    r.experiencia.aniosConNoRelevantes = 2.5;
+    const c = calificar(r);
+    expect(c.veredicto).toBe("REVISION");
+    expect(c.motivosNoViable[0]).toContain("confirmar su relevancia");
+    r.experiencia.aniosConNoRelevantes = 1;
+    expect(calificar(r).veredicto).toBe("NO_VIABLE");
+  });
+
+  it("una causa firme (obligatorio ausente con modelo completo) mantiene NO VIABLE aunque haya otra a revisar", () => {
+    const r = resultado({ obligatorios: [0, 0], anios: 5, minimo: 2 });
+    r.requisitos[1].citaNoVerificada = true;
+    expect(calificar(r).veredicto).toBe("NO_VIABLE");
+  });
+
+  it("el puntaje bajo no convierte una revisión en NO VIABLE", () => {
+    expect(calcularCategoria("REVISION", 10, UMBRALES_POR_DEFECTO)).toBe("REVISION");
+  });
+});
+
 describe("Categoría y umbrales", () => {
   it.each([
     [100, "EXCELENTE"], [85, "EXCELENTE"], [84, "BUENO"], [70, "BUENO"],

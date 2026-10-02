@@ -121,6 +121,11 @@ export type ResultadoVerificado = {
       justificacion: string;
       cita: string;
     }[];
+    /**
+     * Años si también contaran los puestos que la IA juzgó no relevantes (sin prácticas excluidas por la vacante).
+     * Si con ellos se alcanza el mínimo, el veredicto queda en revisión: la relevancia es un juicio de la IA.
+     */
+    aniosConNoRelevantes?: number;
     puestosDescartados: number;
     /** Por qué se descartó cada puesto que la IA reportó (para revisar el CV). */
     descartes?: { puesto: string; empresa: string; motivo: string; cita: string }[];

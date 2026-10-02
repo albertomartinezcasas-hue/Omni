@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useRef } from "react";
 import { ajustarCategoriaAccion } from "@/acciones/analisis";
-import { CATEGORIAS, ETIQUETA_CATEGORIA, type Categoria } from "@/lib/catalogos";
+import { CATEGORIAS_AJUSTE, ETIQUETA_CATEGORIA, type Categoria } from "@/lib/catalogos";
 import { Aviso } from "./Aviso";
 import { ayuda, boton, campo, etiqueta } from "./estilos";
 
@@ -28,8 +28,9 @@ export function FormularioAjuste({ analisisId, actual }: { analisisId: string; a
       {estado?.ok && <Aviso tipo="exito">Categoría ajustada.</Aviso>}
       <div>
         <label htmlFor="categoria" className={etiqueta}>Nueva categoría</label>
-        <select id="categoria" name="categoria" defaultValue={actual} className={campo}>
-          {CATEGORIAS.map((c) => (
+        <select id="categoria" name="categoria" defaultValue={actual === "REVISION" ? "" : actual} required className={campo}>
+          {actual === "REVISION" && <option value="" disabled>Elige la categoría final…</option>}
+          {CATEGORIAS_AJUSTE.map((c) => (
             <option key={c} value={c}>{ETIQUETA_CATEGORIA[c]}</option>
           ))}
         </select>

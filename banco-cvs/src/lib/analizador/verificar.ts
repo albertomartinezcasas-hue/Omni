@@ -171,6 +171,8 @@ export function verificarExtraccion(
     );
   const anios = aniosSinTraslapes(relevantes.map((p) => p.periodo));
   const meses = mesesSinTraslapes(relevantes.map((p) => p.periodo));
+  const juzgadosNoRelevantes = puestos.filter((p) => !p.relevante && cuentaPorTipo(p));
+  const aniosConNoRelevantes = aniosSinTraslapes([...relevantes, ...juzgadosNoRelevantes].map((p) => p.periodo));
 
   // Estudios e idiomas.
   const estudiosVerificados = extraccion.estudios.nivel !== "NO_ESPECIFICADO" && existe(extraccion.estudios.cita);
@@ -241,6 +243,7 @@ export function verificarExtraccion(
       anios,
       meses,
       minimo: vacante.aniosMinimos,
+      aniosConNoRelevantes,
       puestos: relevantes.map((p) => ({
         puesto: p.puesto,
         empresa: p.empresa,

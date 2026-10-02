@@ -5,6 +5,7 @@ const ESTILO: Record<Categoria, string> = {
   EXCELENTE: "bg-green-100 text-green-900 ring-green-700",
   BUENO: "bg-blue-100 text-blue-900 ring-blue-700",
   PASABLE: "bg-amber-100 text-amber-900 ring-amber-700",
+  REVISION: "bg-violet-100 text-violet-900 ring-violet-700",
   NO_VIABLE: "bg-slate-200 text-slate-800 ring-slate-500",
 };
 

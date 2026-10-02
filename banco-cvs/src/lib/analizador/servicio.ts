@@ -7,7 +7,7 @@ import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cli
 import { conLimiteDeAnalisis } from "./limite";
 import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
-import { calificar } from "./puntaje";
+import { calificar, esModeloLigero } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
 import { neutralizarInstrucciones, verificarExtraccion } from "./verificar";
 
@@ -124,7 +124,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     alertas: [...alertasCodigo, ...(verificado.alertas ?? [])],
     proveedor,
   };
-  const calificacion = calificar(resultado);
+  const calificacion = calificar(resultado, { modeloLigero: esModeloLigero(ext.modelo) });
 
   return db.$transaction(async (tx) => {
     const analisis = await tx.analisis.create({

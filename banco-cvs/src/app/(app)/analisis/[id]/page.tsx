@@ -101,7 +101,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
             <div className="flex flex-wrap items-center gap-3">
               <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} grande />
               <span className="text-sm font-semibold text-slate-800">
-                Veredicto: {a.veredicto === "VIABLE" ? "VIABLE" : "NO VIABLE"}
+                Veredicto: {a.veredicto === "VIABLE" ? "VIABLE" : a.veredicto === "REVISION" ? "PENDIENTE DE REVISIÓN" : "NO VIABLE"}
               </span>
             </div>
           </div>
@@ -122,7 +122,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
 
         {a.motivos.length > 0 && (
           <div className="rounded-md border border-slate-300 bg-slate-50 p-4">
-            <h2 className="text-sm font-bold text-slate-900">Motivos de NO VIABLE (verifícalos en el CV)</h2>
+            <h2 className="text-sm font-bold text-slate-900">{a.veredicto === "REVISION" ? "Qué revisar antes de decidir (confírmalo en el CV)" : "Motivos de NO VIABLE (verifícalos en el CV)"}</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-800">
               {a.motivos.map((m) => <li key={m}>{m}</li>)}
             </ul>

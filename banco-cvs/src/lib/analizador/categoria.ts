@@ -7,6 +7,8 @@ export function calcularCategoria(
   puntaje: number,
   umbrales: Umbrales,
 ): Categoria {
+  // Pendiente de revisión: una persona confirma la evidencia antes de descartar (sin importar el puntaje).
+  if (veredicto === "REVISION") return "REVISION";
   if (veredicto === "NO_VIABLE" || puntaje < umbrales.pasable) return "NO_VIABLE";
   if (puntaje >= umbrales.excelente) return "EXCELENTE";
   if (puntaje >= umbrales.bueno) return "BUENO";

@@ -47,7 +47,7 @@ function valor(clave: string, v: unknown): string {
   if (clave.startsWith("rol")) return ETIQUETA_ROL[v as Rol] ?? String(v);
   if (clave === "categoriaCalculada") return categoria(v);
   if (clave === "hasta") return new Date(String(v)).toLocaleString("es-MX", { timeZone: "America/Mexico_City" });
-  if (clave === "veredicto") return v === "VIABLE" ? "Viable" : "No viable";
+  if (clave === "veredicto") return v === "VIABLE" ? "Viable" : v === "REVISION" ? "Pendiente de revisión" : "No viable";
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 

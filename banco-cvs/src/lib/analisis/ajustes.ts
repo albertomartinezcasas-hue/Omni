@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { registrarEvento, type Actor } from "@/lib/bitacora";
 import { calcularCategoria } from "@/lib/analizador/categoria";
-import { CATEGORIAS } from "@/lib/catalogos";
+import { CATEGORIAS_AJUSTE } from "@/lib/catalogos";
 import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 
 export const esquemaAjuste = z.object({
-  categoria: z.enum(CATEGORIAS, { error: "Selecciona una categoría." }),
+  categoria: z.enum(CATEGORIAS_AJUSTE, { error: "Selecciona una categoría." }),
   comentario: z
     .string()
     .trim()

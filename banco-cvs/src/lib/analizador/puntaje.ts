@@ -29,8 +29,14 @@ export function puntajeIdioma(requerido: NivelIdioma, encontrado: NivelIdioma | 
   return diferencia === -1 ? 50 : 0;
 }
 
+/**
+ * VIABLE, NO_VIABLE o REVISION (pendiente de revisión): NO VIABLE solo por causas que una persona debe confirmar
+ * (cita de la IA que no coincide con el CV, requisito no encontrado por un modelo ligero o relevancia de puestos).
+ */
+export type Veredicto = "VIABLE" | "NO_VIABLE" | "REVISION";
+
 export type Calificacion = {
-  veredicto: "VIABLE" | "NO_VIABLE";
+  veredicto: Veredicto;
   motivosNoViable: string[];
   puntaje: number;
   O: number;
@@ -40,7 +46,12 @@ export type Calificacion = {
   pesos: { O: number; D: number; E: number; F: number };
 };
 
-export function calificar(r: ResultadoVerificado): Calificacion {
+/** Los modelos "lite" son menos precisos: un requisito que no encontraron se confirma con una persona. */
+export function esModeloLigero(modelo: string) {
+  return /lite/i.test(modelo);
+}
+
+export function calificar(r: ResultadoVerificado, opciones: { modeloLigero?: boolean } = {}): Calificacion {
   const obligatorios = r.requisitos.filter((q) => q.tipo === "OBLIGATORIO");
   const deseables = r.requisitos.filter((q) => q.tipo === "DESEABLE");
 
@@ -61,14 +72,19 @@ export function calificar(r: ResultadoVerificado): Calificacion {
 
   const puntaje = Math.round(pesos.O * O + pesos.D * (D ?? 0) + pesos.E * E + pesos.F * F);
 
+  // Cada causa de NO VIABLE se marca como firme o como "a revisar" por una persona.
+  let hayCausaFirme = false;
   const motivosNoViable = obligatorios
     .filter((q) => q.nivel === 0)
-    .map((q) =>
-      q.citaNoVerificada
-        ? `No se encontró evidencia de: ${q.texto} (la cita del análisis no coincide con el CV; revisar manualmente)`
-        : `No se encontró evidencia de: ${q.texto}`,
-    );
+    .map((q) => {
+      if (q.citaNoVerificada) return `No se encontró evidencia de: ${q.texto} (la cita del análisis no coincide con el CV; revisar manualmente)`;
+      if (opciones.modeloLigero) return `No se encontró evidencia de: ${q.texto} (analizado con un modelo ligero; confirmar en el CV)`;
+      hayCausaFirme = true;
+      return `No se encontró evidencia de: ${q.texto}`;
+    });
   if (r.experiencia.anios < r.experiencia.minimo) {
+    const dudaPorRelevancia = (r.experiencia.aniosConNoRelevantes ?? 0) >= r.experiencia.minimo;
+    if (!dudaPorRelevancia) hayCausaFirme = true;
     const notas = [
       ...(r.experiencia.puestosDescartados > 0
         ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto no se sumó" : "puestos no se sumaron"} por fechas incompletas o cita no verificable; revisar el CV`]
@@ -82,13 +98,14 @@ export function calificar(r: ResultadoVerificado): Calificacion {
           ]
         : []),
     ];
+    if (dudaPorRelevancia) notas.push("con los puestos no contados se alcanza el mínimo; confirmar su relevancia");
     motivosNoViable.push(
       `Experiencia relevante: ${r.experiencia.anios.toFixed(1)} años; mínimo requerido: ${r.experiencia.minimo}${notas.length ? ` (${notas.join("; ")})` : ""}`,
     );
   }
 
   return {
-    veredicto: motivosNoViable.length ? "NO_VIABLE" : "VIABLE",
+    veredicto: !motivosNoViable.length ? "VIABLE" : hayCausaFirme ? "NO_VIABLE" : "REVISION",
     motivosNoViable,
     puntaje,
     O,
