@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { NIVELES_ESTUDIO, NIVELES_IDIOMA, type NivelEstudio, type NivelIdioma } from "@/lib/catalogos";
 
+export const TIPOS_PUESTO = ["EMPLEO", "PRACTICAS", "FREELANCE"] as const;
+export const ETIQUETA_TIPO_PUESTO: Record<(typeof TIPOS_PUESTO)[number], string> = {
+  EMPLEO: "Empleo",
+  PRACTICAS: "Prácticas profesionales",
+  FREELANCE: "Independiente / freelance",
+};
+export const ESTATUS_ESTUDIOS = ["CONCLUIDO", "TITULADO", "EN_CURSO", "TRUNCO", "NO_ESPECIFICADO"] as const;
+
 // --- Salida de la IA (Paso 2). Solo evidencia: la IA nunca decide veredicto ni puntaje. ---
 
 const cita = z.string().max(600).nullable();
@@ -21,12 +29,16 @@ export const esquemaExtraccion = z.object({
       z.object({
         puesto: z.string().max(150),
         empresa: z.string().max(150),
-        anios: z.number().min(0).max(50),
+        tipo: z.enum(TIPOS_PUESTO),
         cita: z.string().max(600),
       }),
     )
     .max(30),
-  estudios: z.object({ nivel: z.enum([...NIVELES_ESTUDIO, "NO_ESPECIFICADO"]), cita }),
+  estudios: z.object({
+    nivel: z.enum([...NIVELES_ESTUDIO, "NO_ESPECIFICADO"]),
+    estatus: z.enum(ESTATUS_ESTUDIOS),
+    cita,
+  }),
   idiomas: z
     .array(z.object({ idioma: z.string().max(40), nivel: z.enum([...NIVELES_IDIOMA, "NO_ESPECIFICADO"]), cita }))
     .max(10),
@@ -72,10 +84,25 @@ export type ResultadoVerificado = {
   experiencia: {
     anios: number;
     minimo: number;
-    puestos: { puesto: string; empresa: string; anios: number; cita: string }[];
+    puestos: {
+      puesto: string;
+      empresa: string;
+      tipo: (typeof TIPOS_PUESTO)[number];
+      /** Periodo calculado en código a partir de las fechas de la cita. */
+      inicio: string;
+      fin: string;
+      anios: number;
+      cita: string;
+    }[];
     puestosDescartados: number;
+    fechaAnalisis: string;
   };
-  estudios: { requerido: NivelEstudio; encontrado: NivelEstudio | "NO_ESPECIFICADO"; cita: string | null };
+  estudios: {
+    requerido: NivelEstudio;
+    encontrado: NivelEstudio | "NO_ESPECIFICADO";
+    estatus: (typeof ESTATUS_ESTUDIOS)[number];
+    cita: string | null;
+  };
   idiomas: { idioma: string; requerido: NivelIdioma; encontrado: NivelIdioma | "NO_ESPECIFICADO"; cita: string | null }[];
   cualidades: { cualidad: string; cita: string }[];
   cualidadesDescartadas: number;

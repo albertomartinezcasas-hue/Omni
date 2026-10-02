@@ -23,8 +23,8 @@ function resultado(parcial: {
         id: `D${i + 1}`, tipo: "DESEABLE" as const, texto: `Deseable ${i + 1}`, nivel, cita: nivel ? "cita" : null, citaNoVerificada: false,
       })),
     ],
-    experiencia: { anios: parcial.anios, minimo: parcial.minimo, puestos: [], puestosDescartados: 0 },
-    estudios: parcial.estudios ?? { requerido: "LICENCIATURA", encontrado: "LICENCIATURA", cita: "Licenciatura" },
+    experiencia: { anios: parcial.anios, minimo: parcial.minimo, puestos: [], puestosDescartados: 0, fechaAnalisis: "2026-10-02" },
+    estudios: parcial.estudios ?? { requerido: "LICENCIATURA", encontrado: "LICENCIATURA", estatus: "TITULADO", cita: "Licenciatura" },
     idiomas: parcial.idiomas ?? [],
     cualidades: [],
     cualidadesDescartadas: 0,
@@ -130,7 +130,7 @@ describe("Veredicto NO VIABLE", () => {
     // O = 60; E(2,2) = 70; F = 0 → (0.4·60 + 0.2·70 + 0) / 0.75 = 38 / 0.75 = 50.67 → 51
     const c = calificar(resultado({
       obligatorios: [1], anios: 2, minimo: 2,
-      estudios: { requerido: "LICENCIATURA", encontrado: "NO_ESPECIFICADO", cita: null },
+      estudios: { requerido: "LICENCIATURA", encontrado: "NO_ESPECIFICADO", estatus: "NO_ESPECIFICADO", cita: null },
     }));
     expect(c.veredicto).toBe("VIABLE");
     expect(c.puntaje).toBe(51);
@@ -155,6 +155,12 @@ describe("Categoría y umbrales", () => {
       categoria: "EXCELENTE", comentario: "Referencias excelentes", autor: "Reclutadora Ficticia", creadoEn: new Date(),
     });
     expect(m).toMatchObject({ calculada: "BUENO", final: "EXCELENTE", ajustadaPor: "Reclutadora Ficticia" });
+  });
+
+  it("distingue NO VIABLE por requisito y por puntaje", () => {
+    expect(categoriaMostrada({ veredicto: "NO_VIABLE", puntaje: 81 }, UMBRALES_POR_DEFECTO, null).causaNoViable).toBe("REQUISITO");
+    expect(categoriaMostrada({ veredicto: "VIABLE", puntaje: 49 }, UMBRALES_POR_DEFECTO, null).causaNoViable).toBe("PUNTAJE");
+    expect(categoriaMostrada({ veredicto: "VIABLE", puntaje: 60 }, UMBRALES_POR_DEFECTO, null).causaNoViable).toBeNull();
   });
 
   it("valida enteros con EXCELENTE > BUENO > PASABLE ≥ 1", () => {

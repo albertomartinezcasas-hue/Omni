@@ -90,3 +90,38 @@ export function atributosProtegidosEn(texto: string): string[] {
 export function mencionaAtributoProtegido(texto: string) {
   return coincidenciasProtegidas(texto).length > 0;
 }
+
+/**
+ * Enmascara en un texto (p. ej. una cita literal del CV) cada mención de un atributo protegido,
+ * respetando los contextos permitidos. Se usa como segunda barrera sobre lo que se guarda.
+ */
+export function enmascararProtegidos(texto: string, marca = "[DATO PERSONAL OMITIDO]") {
+  const normalizado = texto.normalize("NFC");
+  const permitidos: [number, number][] = [];
+  for (const permitido of CONTEXTOS_PERMITIDOS) {
+    for (const m of normalizado.matchAll(permitido)) permitidos.push([m.index, m.index + m[0].length]);
+  }
+  const rangos: [number, number][] = [];
+  for (const { regex } of EXPRESIONES) {
+    const global = new RegExp(regex.source, "giu");
+    for (const m of normalizado.matchAll(global)) {
+      const inicio = m.index;
+      const fin = inicio + m[0].length;
+      if (permitidos.some(([a, b]) => inicio >= a && fin <= b)) continue;
+      rangos.push([inicio, fin]);
+    }
+  }
+  if (rangos.length === 0) return normalizado;
+  rangos.sort((a, b) => a[0] - b[0]);
+  let resultado = "";
+  let cursor = 0;
+  for (const [inicio, fin] of rangos) {
+    if (inicio < cursor) {
+      cursor = Math.max(cursor, fin);
+      continue;
+    }
+    resultado += normalizado.slice(cursor, inicio) + marca;
+    cursor = fin;
+  }
+  return resultado + normalizado.slice(cursor);
+}

@@ -120,7 +120,10 @@ export function FormularioVacante({
             aria-describedby="ayuda-deseables"
             className={campo}
           />
-          <p id="ayuda-deseables" className={ayuda}>Uno por renglón. Suman puntaje, pero no descartan.</p>
+          <p id="ayuda-deseables" className={ayuda}>
+            Uno por renglón. Suman puntaje, pero no descartan. Cada deseable agregado baja el puntaje
+            de quien no lo tiene (pesan 25 % del total).
+          </p>
         </div>
       </div>
 

@@ -22,8 +22,11 @@ export function categoriaMostrada(
   ajuste: AjusteVigente,
 ) {
   const calculada = calcularCategoria(analisis.veredicto, analisis.puntaje, umbrales);
+  const causaNoViable =
+    calculada !== "NO_VIABLE" ? null : analisis.veredicto === "NO_VIABLE" ? ("REQUISITO" as const) : ("PUNTAJE" as const);
   return {
     calculada,
+    causaNoViable,
     final: (ajuste?.categoria as Categoria | undefined) ?? calculada,
     ajustadaPor: ajuste?.autor ?? null,
     ajuste,

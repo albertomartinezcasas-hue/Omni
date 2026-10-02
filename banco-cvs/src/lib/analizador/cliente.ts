@@ -31,17 +31,24 @@ export class ErrorApiAnalizador extends Error {
  * Llama a la API con salida estructurada (JSON Schema de la extracción) y devuelve el texto JSON crudo.
  * Lanza ErrorApiAnalizador ante errores de red, tiempo agotado, rechazo o respuesta truncada.
  */
-export async function solicitarExtraccion(sistema: string, usuario: string): Promise<{ json: string; modelo: string }> {
+export async function solicitarExtraccion(
+  sistema: string,
+  usuario: string,
+  tiempoMs: number = TIEMPO_MAXIMO_MS,
+): Promise<{ json: string; modelo: string }> {
   const api = obtenerCliente();
   let respuesta: Anthropic.Message;
   try {
-    respuesta = await api.messages.create({
+    respuesta = await api.messages.create(
+      {
       model: modeloConfigurado(),
       max_tokens: 16000,
       system: sistema,
       messages: [{ role: "user", content: usuario }],
       output_config: { format: zodOutputFormat(esquemaExtraccion) },
-    });
+      },
+      { timeout: tiempoMs },
+    );
   } catch (error) {
     if (error instanceof Anthropic.APIConnectionTimeoutError) {
       throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
@@ -56,7 +63,9 @@ export async function solicitarExtraccion(sistema: string, usuario: string): Pro
       throw new ErrorApiAnalizador("No hubo conexión con el servicio de análisis.");
     }
     if (error instanceof Anthropic.APIError) {
-      throw new ErrorApiAnalizador(`El servicio de análisis respondió con un error (${error.status ?? "sin código"}).`);
+      // Diagnóstico mínimo en el servidor: solo el tipo y el código, nunca el cuerpo ni el prompt.
+      console.error("Error de la API de análisis:", error.name, error.status ?? "sin código");
+      throw new ErrorApiAnalizador("El servicio de análisis no está disponible en este momento.");
     }
     throw error;
   }

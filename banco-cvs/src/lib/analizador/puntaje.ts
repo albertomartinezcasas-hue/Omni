@@ -61,7 +61,11 @@ export function calificar(r: ResultadoVerificado): Calificacion {
 
   const motivosNoViable = obligatorios
     .filter((q) => q.nivel === 0)
-    .map((q) => `No se encontró evidencia de: ${q.texto}`);
+    .map((q) =>
+      q.citaNoVerificada
+        ? `No se encontró evidencia de: ${q.texto} (la cita del análisis no coincide con el CV; revisar manualmente)`
+        : `No se encontró evidencia de: ${q.texto}`,
+    );
   if (r.experiencia.anios < r.experiencia.minimo) {
     motivosNoViable.push(
       `No se encontró evidencia de: ${r.experiencia.minimo} ${r.experiencia.minimo === 1 ? "año" : "años"} de experiencia relevante (se encontraron ${r.experiencia.anios})`,

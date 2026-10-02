@@ -9,7 +9,7 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Media] Al re-analizar, el ajuste manual previo queda oculto: mostrar en el análisis nuevo el aviso "Existe un ajuste previo de [nombre] en [fecha]…" con enlace. — Pendiente (Fase 3).
 - [Media] Guardar una copia de la vacante en el análisis. — **Incorporado al plan** (`Analisis.vacanteSnapshot`).
 - [Media] Declarar las relaciones Prisma con `@relation` y `onDelete`. — **Incorporado al plan.**
-- [Baja] Registrar en la bitácora la corrección de `nombreCandidato` (`CV_NOMBRE_CORREGIDO`). — Movido a la Fase 2 (el nombre llega con el análisis; la corrección manual va junto con él).
+- [Baja] Registrar en la bitácora la corrección de `nombreCandidato` (`CV_NOMBRE_CORREGIDO`). — **Fase 2: hecho.**
 - [Baja] Guardar en `detalle` de la bitácora identificadores legibles (archivo, candidato, vacante, categorías, comentario). — **Fase 1: hecho.**
 - [Baja] Definir si un ajuste puede sacar a un candidato de NO VIABLE: agrupar por la categoría ajustada y mostrar siempre "Veredicto calculado: NO VIABLE (motivos)". — Pendiente (Fase 3).
 
@@ -42,13 +42,13 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 
 ### experto-reclutamiento
 - [Alta] Las vacantes aceptaban requisitos discriminatorios (edad, sexo, estado civil, apariencia, domicilio…). — **Corregido**: validación en `esquemaVacante` con `src/lib/analizador/atributosProtegidos.ts`, texto de ayuda y pruebas en `tests/no-discriminacion.test.ts`.
-- [Media] Cualquier edición sube la versión (aunque sea una errata): subir `version` solo si cambian campos que se evalúan; no guardar si no cambió nada. — Pendiente (Fase 2, junto con "Desactualizado").
-- [Media] `VACANTE_EDITADA` debe guardar los campos cambiados con su valor anterior y nuevo. — Pendiente (Fase 2).
-- [Media] Los ids de requisitos (O1, O2…) se renumeran por posición al editar: conservar los ids o leer siempre la evidencia de `vacanteSnapshot`. — Pendiente (Fase 2: la evidencia se leerá de `vacanteSnapshot`).
+- [Media] Cualquier edición sube la versión (aunque sea una errata): subir `version` solo si cambian campos que se evalúan; no guardar si no cambió nada. — **Fase 2: parcial.** Si no cambió nada no se guarda; cualquier cambio real sube la versión, como pide el documento.
+- [Media] `VACANTE_EDITADA` debe guardar los campos cambiados con su valor anterior y nuevo. — **Fase 2: hecho.**
+- [Media] Los ids de requisitos (O1, O2…) se renumeran por posición al editar: conservar los ids o leer siempre la evidencia de `vacanteSnapshot`. — **Fase 2: hecho** (el resultado guarda el texto de cada requisito y la vacante completa en `vacanteSnapshot`).
 - [Media] Estudios mínimos sin estatus (trunco, pasante, titulado) ni carrera. — Pendiente; por ahora se puede capturar como requisito obligatorio. Agregar un campo nuevo cambia el esquema y requiere tu aprobación.
 - [Baja] Catálogo de idiomas (evitar "Inglés", "ingles" y "English" como distintos), rechazar repetidos y mostrar la equivalencia MCER. — Pendiente (Fase 3).
 - [Baja] Gerente solicitante y reclutador responsable por vacante. — Pendiente (cambia el esquema; requiere tu aprobación).
-- [Baja] Corrección manual de `nombreCandidato` con `CV_NOMBRE_CORREGIDO`. — Pendiente (Fase 2).
+- [Baja] Corrección manual de `nombreCandidato` con `CV_NOMBRE_CORREGIDO`. — **Fase 2: hecho.**
 - [Baja] Columna "Alta: fecha · por" en la lista de usuarios. — Pendiente (Fase 3).
 - [Baja] Mientras no exista el análisis, "Subir y analizar CVs" puede confundir. — Pendiente (se resuelve en la Fase 2).
 
@@ -75,3 +75,27 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Alta] Tras un error de validación, React 19 vaciaba el formulario de vacante y el de alta de usuario, y se perdía lo capturado. — **Corregido** con envío manual vía `startTransition`, verificado en el navegador.
 - [Baja] El botón nativo del selector de archivos dice "Choose Files" (texto del navegador, no de la app). — Pendiente (Fase 3: botón propio en español).
 - [Baja] Auth.js escribe `[auth][error] CredentialsSignin` en el log del servidor en cada intento fallido (solo el código, sin correo ni contraseña). — Pendiente: silenciar con un `logger` propio si molesta en operación.
+
+## Fase 2
+
+### revisor-seguridad (ronda 1: RECHAZADO)
+- [Alta] El filtro de datos protegidos no cubría citas, `puesto` ni `empresa`. — **Corregido**: `puesto` y `empresa` deben estar literalmente en su cita (se descartan puestos inyectados); todas las citas guardadas pasan por `enmascararProtegidos`; las brechas y preguntas con datos protegidos se descartan completas. Con pruebas.
+- [Media] La IA decidía los años. — **Corregido**: la IA ya no da años; el código los calcula con las fechas de la cita ("actual" = fecha del análisis), sin traslapes ni citas repetidas, y descarta puestos sin año.
+- [Media] Citas de 3 caracteres e instrucciones como evidencia. — **Corregido**: mínimo de 12 caracteres (el prompt pide 3 palabras) y se rechazan las citas que parecen instrucciones al sistema.
+- [Media] Teléfonos por pares, "+52 1". — **Corregido** con pruebas. Los teléfonos locales de 8 dígitos no se ocultan, para no confundirlos con rangos de años como "2019-2022".
+- [Media] Datos protegidos sin etiqueta ("Edad 32 años", "casado", direcciones). — **Corregido** con pruebas.
+- [Baja] Plazo total de 60 s con el reintento. — **Corregido** (el reintento solo usa el tiempo restante).
+- [Baja] Correos con [at], dominios sin ruta y usuarios de redes. — **Corregido.**
+- [Baja] Etiquetas `<vacante>` falsas y de ancho completo. — **Corregido** (NFKC y neutralización).
+- [Baja] Código HTTP en el mensaje al usuario. — **Corregido** (mensaje genérico; en el servidor solo se registran el nombre del error y el código).
+
+### experto-reclutamiento (ronda 1: APROBADO CON AJUSTES)
+- [Alta] El modelo no recibía la fecha del análisis. — **Corregido**: se envía `fecha_de_analisis` y el código calcula los periodos con ella.
+- [Media] Años por puesto tomados de la IA. — **Corregido** (ver seguridad).
+- [Media] Diferencias típicas de PDF provocaban falsos NO VIABLE, y no se distinguía una ausencia real de una cita no verificada. — **Corregido**: normalización NFKC con comillas, guiones y guion de corte, y motivo propio "(la cita del análisis no coincide con el CV; revisar manualmente)".
+- [Media] Regla de prácticas y freelance. — **Implementado** como sugeriste: cuentan prácticas y freelance con fechas; no cuentan servicio social ni proyectos escolares; cada puesto lleva su tipo. **Requiere tu confirmación.**
+- [Media] Brechas desligadas de la evidencia. — **Corregido**: las brechas base salen del código (requisitos en 0 o 1, años, estudios, idiomas) y las de la IA las complementan.
+- [Media] Estudios en curso = concluidos. — **Parcial**: se extrae y guarda el estatus (`CONCLUIDO`, `TITULADO`, `EN_CURSO`, `TRUNCO`) para mostrarlo; la fórmula de F no cambia hasta que lo decidas.
+- [Baja] Equivalencias MCER, cualidades ligadas a hechos y preguntas concretas en el prompt. — **Hecho.**
+- [Baja] Distinguir "No viable (requisito)" de "No viable (puntaje)". — **Hecho** en `categoriaMostrada.causaNoViable`; se mostrará en la Fase 3.
+- [Baja] Texto de ayuda: los deseables bajan el puntaje de quien no los tiene. — **Hecho.**

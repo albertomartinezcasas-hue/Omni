@@ -1,36 +1,60 @@
 // Paso 3 — Verificación (código): toda cita debe existir literalmente en el texto del CV.
-import { coincidenciasProtegidas } from "./atributosProtegidos";
+import { ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, NIVELES_ESTUDIO, NIVELES_IDIOMA } from "@/lib/catalogos";
+import { coincidenciasProtegidas, enmascararProtegidos } from "./atributosProtegidos";
+import { aniosDePeriodo, aniosSinTraslapes, formatoMes, periodoDeCita } from "./fechas";
 import { ocultarDatosPersonales } from "./ocultar";
 import type { Extraccion, ResultadoVerificado, VacanteEvaluada } from "./tipos";
 
-const MIN_CARACTERES_CITA = 3;
+const MIN_CARACTERES_CITA = 12;
+// Citas que parecen instrucciones dirigidas al sistema (posible inyección): nunca son evidencia.
+const PARECE_INSTRUCCION =
+  /\b(ignora|olvida|omite|disregard|ignore)\b.{0,40}\b(instrucci|reglas|indicaciones|instructions)|\b(calif[ií]ca(?:me|lo|la|r)?|eval[uú]a(?:me|lo|la)?|clasif[ií]ca(?:me|lo|la)?)\b.{0,30}\b(como|con)\b.{0,20}\b(excelente|bueno|viable|100|nivel)|\b(modelo de lenguaje|sistema de (?:ia|evaluaci[oó]n)|language model)\b/i;
 
-/** Comparación sin distinguir mayúsculas, con espacios normalizados (y Unicode NFC). */
+/**
+ * Comparación sin distinguir mayúsculas, con espacios normalizados, NFKC (ligaduras, ancho completo),
+ * comillas y guiones unificados, y sin el guion de corte al final de renglón de los PDF.
+ */
 export function normalizarParaCita(texto: string) {
-  return texto.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+  return texto
+    .normalize("NFKC")
+    .replace(/(\p{L})-\s*\n\s*(\p{L})/gu, "$1$2")
+    .replace(/[‘’‚‛′]/g, "'")
+    .replace(/[“”„‟″«»]/g, '"')
+    .replace(/[‐-―−]/g, "-")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** ¿La cita aparece literalmente en el texto (el mismo texto ocultado que vio la IA)? */
 export function citaEnTexto(cita: string | null | undefined, textoNormalizado: string) {
-  if (!cita) return false;
+  if (!cita || PARECE_INSTRUCCION.test(cita)) return false;
   const buscada = normalizarParaCita(cita);
   return buscada.length >= MIN_CARACTERES_CITA && textoNormalizado.includes(buscada);
 }
 
 /** Texto libre generado (brechas, preguntas, cualidades): sin datos de contacto ni atributos protegidos. */
 function textoLibreSeguro(texto: string) {
+  if (coincidenciasProtegidas(texto).length) return null;
   const limpio = ocultarDatosPersonales(texto.trim());
-  return limpio && coincidenciasProtegidas(limpio).length === 0 ? limpio : null;
+  // Si al ocultar apareció un dato protegido (p. ej. estado civil suelto), se descarta completo.
+  if (!limpio || limpio.includes("[DATO PERSONAL OMITIDO]") || coincidenciasProtegidas(limpio).length) return null;
+  return limpio;
 }
+
+/** Cita que se guarda: literal del CV, con cualquier mención protegida enmascarada. */
+const citaSegura = (cita: string) => enmascararProtegidos(cita);
 
 export function verificarExtraccion(
   extraccion: Extraccion,
   vacante: VacanteEvaluada,
   textoOculto: string,
+  fechaAnalisis: Date = new Date(),
 ): ResultadoVerificado {
   const texto = normalizarParaCita(textoOculto);
   const existe = (cita: string | null | undefined) => citaEnTexto(cita, texto);
 
+  // Requisitos: nivel > 0 solo con cita verificada.
   const porId = new Map(extraccion.requisitos.map((r) => [r.id, r]));
   const requisitos = [
     ...vacante.obligatorios.map((r) => ({ ...r, tipo: "OBLIGATORIO" as const })),
@@ -44,15 +68,34 @@ export function verificarExtraccion(
       tipo: r.tipo,
       texto: r.texto,
       nivel: verificada ? nivelDado : 0,
-      cita: verificada ? dado!.cita : null,
+      cita: verificada ? citaSegura(dado!.cita!) : null,
       citaNoVerificada: nivelDado > 0 && !verificada,
     } as const;
   });
 
-  const puestos = extraccion.puestos.filter((p) => existe(p.cita) && p.anios >= 0);
-  const anios = Math.round(puestos.reduce((total, p) => total + p.anios, 0) * 10) / 10;
+  // Puestos: cita verificada que contiene literalmente el puesto, la empresa y al menos un año.
+  // La duración la calcula el código con esas fechas ("actual" = fecha del análisis), sin traslapes.
+  const vistas = new Set<string>();
+  const puestos = extraccion.puestos.flatMap((p) => {
+    const clave = normalizarParaCita(p.cita);
+    if (vistas.has(clave) || !existe(p.cita)) return [];
+    if (!clave.includes(normalizarParaCita(p.puesto)) || !clave.includes(normalizarParaCita(p.empresa))) return [];
+    if (coincidenciasProtegidas(`${p.puesto} ${p.empresa}`).length) return [];
+    const periodo = periodoDeCita(p.cita, fechaAnalisis);
+    if (!periodo) return [];
+    vistas.add(clave);
+    return [{ ...p, periodo }];
+  });
+  const anios = aniosSinTraslapes(puestos.map((p) => p.periodo));
 
+  // Estudios e idiomas.
   const estudiosVerificados = extraccion.estudios.nivel !== "NO_ESPECIFICADO" && existe(extraccion.estudios.cita);
+  const estudios = {
+    requerido: vacante.nivelEstudiosMinimo,
+    encontrado: estudiosVerificados ? extraccion.estudios.nivel : ("NO_ESPECIFICADO" as const),
+    estatus: estudiosVerificados ? extraccion.estudios.estatus : ("NO_ESPECIFICADO" as const),
+    cita: estudiosVerificados ? citaSegura(extraccion.estudios.cita!) : null,
+  };
 
   const idiomas = vacante.idiomas.map((requerido) => {
     const clave = normalizarParaCita(requerido.idioma);
@@ -62,19 +105,41 @@ export function verificarExtraccion(
       idioma: requerido.idioma,
       requerido: requerido.nivel,
       encontrado: verificado ? dado!.nivel : ("NO_ESPECIFICADO" as const),
-      cita: verificado ? dado!.cita : null,
+      cita: verificado ? citaSegura(dado!.cita!) : null,
     };
   });
 
+  // Cualidades: cita verificada y sin atributos protegidos.
   const cualidades = extraccion.cualidades
     .filter((c) => existe(c.cita) && coincidenciasProtegidas(`${c.cualidad} ${c.cita}`).length === 0)
     .map((c) => ({ cualidad: textoLibreSeguro(c.cualidad), cita: c.cita }))
     .filter((c): c is { cualidad: string; cita: string } => c.cualidad !== null);
 
+  // Brechas: primero las que se derivan de la evidencia verificada; luego las de la IA como complemento.
+  const brechasBase = [
+    ...requisitos
+      .filter((q) => q.nivel === 0)
+      .map((q) => `${q.tipo === "OBLIGATORIO" ? "Obligatorio" : "Deseable"} sin evidencia: ${q.texto}${q.citaNoVerificada ? " (la cita del análisis no coincide con el CV; revisar)" : ""}`),
+    ...requisitos.filter((q) => q.nivel === 1).map((q) => `Solo se menciona, sin detalle: ${q.texto}`),
+    ...(anios < vacante.aniosMinimos
+      ? [`Experiencia relevante comprobable: ${anios} de ${vacante.aniosMinimos} ${vacante.aniosMinimos === 1 ? "año" : "años"} requeridos`]
+      : []),
+    ...(vacante.nivelEstudiosMinimo !== "NINGUNO" &&
+    (estudios.encontrado === "NO_ESPECIFICADO" ||
+      NIVELES_ESTUDIO.indexOf(estudios.encontrado) < NIVELES_ESTUDIO.indexOf(vacante.nivelEstudiosMinimo))
+      ? [`Estudios: se requiere ${ETIQUETA_ESTUDIO[vacante.nivelEstudiosMinimo]}`]
+      : []),
+    ...idiomas
+      .filter((i) => i.encontrado === "NO_ESPECIFICADO" || NIVELES_IDIOMA.indexOf(i.encontrado) < NIVELES_IDIOMA.indexOf(i.requerido))
+      .map((i) => `${i.idioma}: se requiere nivel ${ETIQUETA_IDIOMA[i.requerido]}`),
+  ];
+  const brechasIa = extraccion.brechas.map(textoLibreSeguro).filter((t): t is string => !!t);
+
   const nombreVerificado =
     extraccion.nombreCandidato.valor &&
     existe(extraccion.nombreCandidato.cita) &&
-    normalizarParaCita(extraccion.nombreCandidato.cita!).includes(normalizarParaCita(extraccion.nombreCandidato.valor));
+    normalizarParaCita(extraccion.nombreCandidato.cita!).includes(normalizarParaCita(extraccion.nombreCandidato.valor)) &&
+    coincidenciasProtegidas(extraccion.nombreCandidato.valor).length === 0;
 
   return {
     nombreCandidato: nombreVerificado ? extraccion.nombreCandidato.valor!.trim() : null,
@@ -82,18 +147,23 @@ export function verificarExtraccion(
     experiencia: {
       anios,
       minimo: vacante.aniosMinimos,
-      puestos,
+      puestos: puestos.map((p) => ({
+        puesto: p.puesto,
+        empresa: p.empresa,
+        tipo: p.tipo,
+        inicio: formatoMes(p.periodo.inicio),
+        fin: formatoMes(p.periodo.fin),
+        anios: aniosDePeriodo(p.periodo),
+        cita: citaSegura(p.cita),
+      })),
       puestosDescartados: extraccion.puestos.length - puestos.length,
+      fechaAnalisis: fechaAnalisis.toISOString().slice(0, 10),
     },
-    estudios: {
-      requerido: vacante.nivelEstudiosMinimo,
-      encontrado: estudiosVerificados ? extraccion.estudios.nivel : "NO_ESPECIFICADO",
-      cita: estudiosVerificados ? extraccion.estudios.cita : null,
-    },
+    estudios,
     idiomas,
-    cualidades,
+    cualidades: cualidades.map((c) => ({ ...c, cita: citaSegura(c.cita) })),
     cualidadesDescartadas: extraccion.cualidades.length - cualidades.length,
-    brechas: extraccion.brechas.map(textoLibreSeguro).filter((t): t is string => !!t),
+    brechas: [...brechasBase, ...brechasIa.filter((b) => !brechasBase.includes(b))],
     preguntas: extraccion.preguntas.map(textoLibreSeguro).filter((t): t is string => !!t),
   };
 }

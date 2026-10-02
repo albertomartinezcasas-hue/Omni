@@ -3,18 +3,26 @@ import type { NivelEstudio, NivelIdioma } from "@/lib/catalogos";
 import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
-import { ErrorApiAnalizador, solicitarExtraccion } from "./cliente";
+import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
 import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
 import { verificarExtraccion } from "./verificar";
 
-/** Paso 2 — Extracción con un solo reintento si el JSON no es válido. */
-export async function extraerEvidencia(vacante: VacanteEvaluada, textoOculto: string) {
-  const usuario = mensajeUsuario(vacante, textoOculto);
+const MIN_TIEMPO_REINTENTO_MS = 5_000;
+
+/**
+ * Paso 2 — Extracción con un solo reintento si el JSON no es válido.
+ * El plazo de 60 s es total: el reintento solo usa el tiempo que queda.
+ */
+export async function extraerEvidencia(vacante: VacanteEvaluada, textoOculto: string, fechaAnalisis: Date = new Date()) {
+  const usuario = mensajeUsuario(vacante, textoOculto, fechaAnalisis);
+  const limite = Date.now() + TIEMPO_MAXIMO_MS;
   for (let intento = 1; intento <= 2; intento++) {
-    const { json, modelo } = await solicitarExtraccion(PROMPT_SISTEMA, usuario);
+    const restante = limite - Date.now();
+    if (restante < MIN_TIEMPO_REINTENTO_MS) throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
+    const { json, modelo } = await solicitarExtraccion(PROMPT_SISTEMA, usuario, restante);
     let datos: unknown;
     try {
       datos = JSON.parse(json);
@@ -75,17 +83,18 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
 
   const evaluada = vacanteEvaluada(vacante);
   const textoOculto = ocultarDatosPersonales(cv.textoExtraido);
+  const fechaAnalisis = new Date();
 
   let extraccion: Extraccion;
   let modelo: string;
   try {
-    ({ extraccion, modelo } = await extraerEvidencia(evaluada, textoOculto));
+    ({ extraccion, modelo } = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis));
   } catch (error) {
     if (error instanceof ErrorApiAnalizador) throw new ErrorNegocio(`${error.motivo} Usa «Reintentar».`);
     throw error;
   }
 
-  const resultado = verificarExtraccion(extraccion, evaluada, textoOculto);
+  const resultado = verificarExtraccion(extraccion, evaluada, textoOculto, fechaAnalisis);
   const calificacion = calificar(resultado);
 
   return db.$transaction(async (tx) => {
