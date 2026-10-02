@@ -47,6 +47,8 @@ export type FilaCandidato = {
   F: number;
   creadoEn: Date;
   desactualizado: boolean;
+  /** El candidato se opuso al análisis con IA: no se puede re-analizar. */
+  sinAnalisisIA: boolean;
   categoria: ReturnType<typeof categoriaMostrada>;
   /** Resumen para comparar sin abrir cada análisis. */
   clave: {
@@ -69,7 +71,7 @@ export async function candidatosDeVacante(vacanteId: string, versionActual: numb
   const analisis = await db.analisis.findMany({
     where: { vacanteId },
     orderBy: { creadoEn: "desc" },
-    include: { cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true } }, ...incluirAjuste },
+    include: { cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true, sinAnalisisIA: true } }, ...incluirAjuste },
   });
   const vistos = new Set<string>();
   const filas: FilaCandidato[] = [];
@@ -89,6 +91,7 @@ export async function candidatosDeVacante(vacanteId: string, versionActual: numb
       F: a.puntajeF,
       creadoEn: a.creadoEn,
       desactualizado: a.vacanteVersion !== versionActual,
+      sinAnalisisIA: a.cv.sinAnalisisIA,
       categoria: categoriaMostrada(a, umbrales, ajusteVigente(a.ajustes)),
       clave: resumenClave(JSON.parse(a.resultado) as ResultadoVerificado),
     });

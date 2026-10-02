@@ -10,7 +10,7 @@ export function BotonOposicionIA({ id, seOpone }: { id: string; seOpone: boolean
   const router = useRouter();
   return seOpone ? (
     <DialogoConfirmacion
-      textoBoton="Retirar oposición al análisis con IA"
+      textoBoton="Retirar oposición"
       titulo="¿Retirar la oposición?"
       mensaje={<p>Hazlo solo si el candidato autorizó por escrito el análisis con IA. Quedará registrado en la bitácora.</p>}
       textoConfirmar="Retirar oposición"
@@ -23,7 +23,7 @@ export function BotonOposicionIA({ id, seOpone }: { id: string; seOpone: boolean
     />
   ) : (
     <DialogoConfirmacion
-      textoBoton="El candidato se opuso al análisis con IA"
+      textoBoton="Registrar oposición"
       titulo="¿Registrar la oposición al análisis con IA?"
       mensaje={
         <p>

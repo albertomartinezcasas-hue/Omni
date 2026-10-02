@@ -134,6 +134,12 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   });
 
   return db.$transaction(async (tx) => {
+    // Se vuelve a verificar: la oposición pudo registrarse (o el CV eliminarse) mientras la IA respondía.
+    const vigente = await tx.cv.findUnique({ where: { id: cvId }, select: { sinAnalisisIA: true } });
+    if (!vigente) throw new ErrorNegocio("El CV ya no existe.");
+    if (vigente.sinAnalisisIA) {
+      throw new ErrorNegocio("El candidato se opuso al análisis con IA: este CV solo puede evaluarlo una persona.");
+    }
     const analisis = await tx.analisis.create({
       data: {
         cvId,

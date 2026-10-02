@@ -64,6 +64,9 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           <BadgeDesactualizado />
           <span>La vacante se editó después de este análisis (versión {a.vacanteVersion} → {a.vacante.version}).</span>
           {puedeReanalizar && <span className="print:hidden"><BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} /></span>}
+          {a.cv.sinAnalisisIA && (
+            <span className="text-sm text-slate-700 print:hidden">No se puede re-analizar: el candidato se opuso al análisis con IA.</span>
+          )}
         </div>
       )}
       {((r.instruccionesOmitidas ?? 0) > 0 || (r.textoOcultoOmitido ?? 0) > 0) && (

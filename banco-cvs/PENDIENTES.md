@@ -278,3 +278,20 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Bloquea el análisis en el servidor y oculta los botones de analizar.
 - **Media**: los eventos anteriores de la bitácora (CV_SUBIDO, CV_ELIMINADO, CV_NOMBRE_CORREGIDO) pueden incluir el nombre del archivo o del candidato y no se purgan. Falta definir el plazo de conservación de la bitácora.
 - **Baja**: la base de datos local de desarrollo tiene una diferencia de checksum con la migración inicial (ya registrada). En producción, aplicar las migraciones con `npx prisma migrate deploy`.
+
+#### Revisión de la conservación y la oposición al análisis con IA
+
+- **revisor-seguridad: APROBADO CON AJUSTES**
+  - Corregido (Alta): la oposición se puede registrar al subir el CV (casilla en la carga) y se hereda en los duplicados del mismo candidato, por texto o por correo.
+  - Corregido (Media): `CONSERVACION_DIAS` solo acepta enteros ≥ 1. Con un valor inválido la purga no se ejecuta y se registra el error.
+  - Corregido (Media): el borrado repite la condición de vencimiento dentro de la transacción.
+  - Corregido (Media): un fallo al borrar un archivo no detiene la purga, y hay un barrido de archivos huérfanos en `storage/` (con 1 hora de gracia).
+  - Corregido (Media): la oposición se vuelve a verificar dentro de la transacción del análisis.
+  - Corregido (Baja): la bitácora guarda los ids eliminados.
+  - Corregido (Baja): «Re-analizar» se oculta en la tabla de candidatos cuando hay oposición.
+  - **Media (operación)**: el primer arranque con `CONSERVACION_DIAS=1` borra todo lo que tenga más de 1 día. Hay que hacer un respaldo de `data/` y `storage/` antes del primer despliegue.
+- **ux-ui-reviewer: APROBADO CON AJUSTES**
+  - Corregido (Alta): casilla «El candidato se opuso al análisis con IA» en la carga. Por decisión del usuario no se volvió a poner el recordatorio.
+  - Corregido (Media): botón «Registrar oposición»; el diálogo usa un id único con `useId`; la página del CV muestra «Se eliminará: fecha».
+  - Corregido (Baja): la página del análisis explica por qué no se puede re-analizar.
+  - **Media (decisión del usuario)**: el plazo de 1 día no se repite en la página de subida.

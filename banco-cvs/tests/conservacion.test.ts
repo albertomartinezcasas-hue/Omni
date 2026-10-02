@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { utimesSync, writeFileSync } from "node:fs";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { analizarCvAccion } from "@/acciones/analisis";
 import { marcarOposicionIAAccion } from "@/acciones/cvs";
 import { diasDeConservacion, purgarCvsVencidos } from "@/lib/archivos/conservacion";
@@ -26,7 +27,17 @@ describe("Plazo de conservación", () => {
   it("por defecto es 1 día; CONSERVACION_DIAS lo cambia", () => {
     expect(diasDeConservacion({})).toBe(1);
     expect(diasDeConservacion({ CONSERVACION_DIAS: "30" })).toBe(30);
-    expect(diasDeConservacion({ CONSERVACION_DIAS: "no" })).toBe(1);
+    // Valores inválidos no caen al valor por defecto en silencio: la purga no se ejecuta.
+    for (const malo of ["no", "0", "-3", "0.001", "7d"]) expect(diasDeConservacion({ CONSERVACION_DIAS: malo })).toBeNull();
+  });
+
+  it("con un plazo inválido no borra nada", async () => {
+    const cv = await cvDePrueba("Invalido");
+    await db.cv.update({ where: { id: cv.id }, data: { creadoEn: new Date(Date.now() - 100 * 24 * HORA) } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await purgarCvsVencidos(new Date(), null)).toBe(0);
+    expect(await db.cv.findUnique({ where: { id: cv.id } })).not.toBeNull();
+    await db.cv.update({ where: { id: cv.id }, data: { creadoEn: new Date() } });
   });
 
   it("elimina los CVs vencidos (con su archivo) y conserva los recientes; la bitácora no guarda nombres", async () => {
@@ -43,7 +54,7 @@ describe("Plazo de conservación", () => {
 
     const evento = await db.eventoBitacora.findFirstOrThrow({ where: { accion: "CV_ELIMINADO_POR_PLAZO" } });
     expect(evento.actorNombre).toBe("Sistema");
-    expect(JSON.parse(evento.detalle!)).toEqual({ cantidad: 1, plazoDias: 1 });
+    expect(JSON.parse(evento.detalle!)).toEqual({ cantidad: 1, plazoDias: 1, ids: [viejo.id] });
     expect(evento.detalle).not.toContain("Viejo");
   });
 
@@ -68,7 +79,30 @@ describe("Plazo de conservación", () => {
   });
 });
 
+describe("Archivos huérfanos", () => {
+  it("borra de storage/ los archivos sin CV con más de 1 hora; respeta los recientes", async () => {
+    await cvDePrueba("Ancla"); // asegura que exista storage/
+    const huerfano = path.join(directorioAlmacenamiento(), "00000000-0000-4000-8000-000000000001");
+    const reciente = path.join(directorioAlmacenamiento(), "00000000-0000-4000-8000-000000000002");
+    writeFileSync(huerfano, "x");
+    writeFileSync(reciente, "x");
+    const haceDosHoras = new Date(Date.now() - 2 * HORA);
+    utimesSync(huerfano, haceDosHoras, haceDosHoras);
+    await purgarCvsVencidos(new Date(), 30);
+    expect(existsSync(huerfano)).toBe(false);
+    expect(existsSync(reciente)).toBe(true);
+  });
+});
+
 describe("Oposición al análisis con IA", () => {
+  it("se puede registrar al subir y se hereda en los duplicados del mismo candidato", async () => {
+    const r1 = await subirCv(usuario, { nombreArchivo: "o.pdf", contenido: crearPdf(textoCv("Olga", "olga@correo.mx")), forzar: true, sinAnalisisIA: true });
+    const r2 = await subirCv(usuario, { nombreArchivo: "o2.pdf", contenido: crearPdf(textoCv("Olga", "olga@correo.mx")), forzar: true });
+    if (r1.estado !== "GUARDADO" || r2.estado !== "GUARDADO") throw new Error("no se guardó");
+    expect((await db.cv.findUniqueOrThrow({ where: { id: r1.id } })).sinAnalisisIA).toBe(true);
+    expect((await db.cv.findUniqueOrThrow({ where: { id: r2.id } })).sinAnalisisIA).toBe(true);
+  });
+
   it("bloquea el análisis, queda en la bitácora y se puede retirar", async () => {
     const cv = await cvDePrueba("Opositor");
     const vacante = await db.vacante.findFirstOrThrow();

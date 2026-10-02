@@ -5,6 +5,7 @@ import { BotonOposicionIA } from "@/components/BotonOposicionIA";
 import { boton, tarjeta, titulo } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { FormularioNombreCandidato } from "@/components/FormularioNombreCandidato";
+import { diasDeConservacion, fechaDeEliminacion } from "@/lib/archivos/conservacion";
 import { ESTADO_SIN_TEXTO, ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
 import { AnalizarContraVacante } from "@/components/AnalizarContraVacante";
 import { BadgeCategoria, BadgeDesactualizado, BadgeManipulacion } from "@/components/BadgeCategoria";
@@ -21,6 +22,9 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
   const cv = await consultarCv(id);
   if (!cv) notFound();
   const [analisis, activas] = await Promise.all([consultarAnalisisDeCv(cv.id), consultarVacantes("ACTIVA")]);
+  const dias = diasDeConservacion();
+  const ultimaActividad = new Date(Math.max(cv.creadoEn.getTime(), ...analisis.map((a) => a.creadoEn.getTime())));
+  const seElimina = dias === null ? null : fechaDeEliminacion(ultimaActividad, dias);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -55,6 +59,12 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
         <dd>{ETIQUETA_ESTADO_CV[cv.estado]}</dd>
         <dt className="font-semibold text-slate-700">Subido por</dt>
         <dd>{cv.subidoPor.nombre} · {formatearFecha(cv.creadoEn)}</dd>
+        {seElimina && (
+          <>
+            <dt className="font-semibold text-slate-700">Se eliminará</dt>
+            <dd>{formatearFecha(seElimina)} (plazo de conservación; un nuevo análisis lo extiende)</dd>
+          </>
+        )}
         <dt className="font-semibold text-slate-700">Análisis con IA</dt>
         <dd className="flex flex-wrap items-center gap-3">
           <span>{cv.sinAnalisisIA ? "El candidato se opuso" : "Permitido"}</span>

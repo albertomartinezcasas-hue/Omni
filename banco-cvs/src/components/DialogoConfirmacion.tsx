@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { boton } from "./estilos";
 
 type Resultado = { ok: boolean; error?: string } | void;
@@ -24,6 +24,8 @@ export function DialogoConfirmacion({
   alConfirmar: () => Promise<Resultado>;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  // Id único: puede haber varios diálogos en la misma página.
+  const idTitulo = useId();
   const [error, setError] = useState<string | null>(null);
   const [pendiente, iniciar] = useTransition();
 
@@ -53,11 +55,11 @@ export function DialogoConfirmacion({
       </button>
       <dialog
         ref={dialogo}
-        aria-labelledby="titulo-dialogo"
+        aria-labelledby={idTitulo}
         className="m-auto w-full max-w-md rounded-lg p-0 shadow-xl"
       >
         <div className="space-y-4 p-6">
-          <h2 id="titulo-dialogo" className="text-lg font-bold text-slate-900">
+          <h2 id={idTitulo} className="text-lg font-bold text-slate-900">
             {titulo}
           </h2>
           <div className="text-sm text-slate-700">{mensaje}</div>

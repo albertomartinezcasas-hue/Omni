@@ -43,11 +43,16 @@ const COLOR: Record<Estado["tipo"], string> = {
   ERROR: "bg-red-100 text-red-900",
 };
 
-async function subir(archivo: File, forzar: boolean): Promise<Estado | { tipo: "SUBIDO"; cvId: string; sinTexto: boolean }> {
+async function subir(
+  archivo: File,
+  forzar: boolean,
+  sinAnalisisIA: boolean,
+): Promise<Estado | { tipo: "SUBIDO"; cvId: string; sinTexto: boolean }> {
   if (archivo.size > TAMANO_MAXIMO) return { tipo: "ERROR", motivo: "El archivo supera 10 MB." };
   const datos = new FormData();
   datos.append("archivo", archivo);
   if (forzar) datos.append("forzar", "1");
+  if (sinAnalisisIA) datos.append("sinAnalisisIA", "1");
   try {
     const respuesta = await fetch("/api/cvs", { method: "POST", body: datos });
     const cuerpo = (await respuesta.json().catch(() => ({}))) as ResultadoCarga | { estado?: undefined; error?: string };
@@ -70,12 +75,15 @@ export function CargaCvs({
   const [filas, setFilas] = useState<Fila[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
   const [vacanteId, setVacanteId] = useState(vacanteInicial ?? "");
+  // El candidato se opuso al análisis con IA: se guarda con la oposición registrada y sin analizar.
+  const [oposicionIA, setOposicionIA] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
   const cola = useRef<Tarea[]>([]);
   const activos = useRef(0);
   const archivos = useRef(new Map<string, File>());
   // Vacante de cada archivo, fijada al seleccionarlo: «Reintentar» usa siempre la misma.
   const vacantePorArchivo = useRef(new Map<string, string>());
+  const oposicionPorArchivo = useRef(new Map<string, boolean>());
 
   function actualizar(clave: string, estado: Estado) {
     setFilas((previas) => previas.map((f) => (f.clave === clave ? { ...f, estado } : f)));
@@ -88,7 +96,7 @@ export function CargaCvs({
     let sinTexto = false;
     if (!cvId) {
       actualizar(tarea.clave, { tipo: "PROCESANDO", paso: "Subiendo" });
-      const subida = await subir(archivo, tarea.forzar);
+      const subida = await subir(archivo, tarea.forzar, oposicionPorArchivo.current.get(tarea.clave) === true);
       if (subida.tipo !== "SUBIDO") return actualizar(tarea.clave, subida);
       cvId = subida.cvId;
       sinTexto = subida.sinTexto;
@@ -129,11 +137,12 @@ export function CargaCvs({
       setAviso(`Solo se pueden subir ${MAX_ARCHIVOS} archivos a la vez. Se tomaron los primeros ${MAX_ARCHIVOS}.`);
       seleccion = seleccion.slice(0, MAX_ARCHIVOS);
     }
-    const vacante = vacantes.find((v) => v.id === vacanteId) ?? null;
+    const vacante = oposicionIA ? null : (vacantes.find((v) => v.id === vacanteId) ?? null);
     const nuevas: Fila[] = seleccion.map((archivo) => ({ clave: crypto.randomUUID(), archivo, estado: { tipo: "EN_COLA" }, vacante }));
     nuevas.forEach((f) => {
       archivos.current.set(f.clave, f.archivo);
       vacantePorArchivo.current.set(f.clave, vacante?.id ?? "");
+      oposicionPorArchivo.current.set(f.clave, oposicionIA);
     });
     setFilas((previas) => [...nuevas, ...previas]);
     nuevas.forEach((f) => cola.current.push({ clave: f.clave, forzar: false }));
@@ -166,16 +175,28 @@ export function CargaCvs({
           <label htmlFor="vacante" className={etiqueta}>Analizar contra la vacante</label>
           <select
             id="vacante"
-            value={vacanteId}
+            value={oposicionIA ? "" : vacanteId}
             onChange={(e) => setVacanteId(e.target.value)}
             className={campo}
-            disabled={pendientes > 0}
+            disabled={pendientes > 0 || oposicionIA}
           >
             <option value="">Solo guardar en el repositorio (sin analizar)</option>
             {vacantes.map((v) => (
               <option key={v.id} value={v.id}>{v.titulo}</option>
             ))}
           </select>
+          <label className="mt-3 flex items-start gap-2 text-sm text-slate-800">
+            <input
+              type="checkbox"
+              checked={oposicionIA}
+              onChange={(e) => setOposicionIA(e.target.checked)}
+              disabled={pendientes > 0}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              El candidato se opuso al análisis con IA <span className="text-slate-700">(se guarda sin analizar y no se podrá analizar)</span>
+            </span>
+          </label>
         </div>
 
         <div>

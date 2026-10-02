@@ -30,6 +30,7 @@ export async function POST(req: Request) {
       nombreArchivo: archivo.name,
       contenido: Buffer.from(await archivo.arrayBuffer()),
       forzar: formulario.get("forzar") === "1",
+      sinAnalisisIA: formulario.get("sinAnalisisIA") === "1",
     });
     return NextResponse.json(resultado, { status: resultado.estado === "DUPLICADO" ? 409 : 201 });
   } catch (error) {

@@ -142,7 +142,7 @@ export function TablaCandidatos({
                         {f.desactualizado && (
                           <div className="mt-1 space-y-1">
                             <BadgeDesactualizado />
-                            {!soloLectura && (
+                            {!soloLectura && !f.sinAnalisisIA && (
                               <BotonAnalizar
                                 cvId={f.cvId}
                                 vacanteId={vacanteId}

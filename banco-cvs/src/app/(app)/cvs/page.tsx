@@ -36,10 +36,12 @@ export default async function PaginaRepositorio({ searchParams }: { searchParams
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={titulo}>Repositorio de CVs</h1>
-          <p className="text-sm text-slate-700">
-            Los CVs se eliminan automáticamente {dias === 1 ? "1 día" : `${dias} días`} después de su última actividad
-            (subida o análisis), con sus análisis.
-          </p>
+          {dias !== null && (
+            <p className="text-sm text-slate-700">
+              Los CVs se eliminan automáticamente {dias === 1 ? "1 día" : `${dias} días`} después de su última actividad
+              (subida o análisis), con sus análisis.
+            </p>
+          )}
         </div>
         <Link href="/cvs/subir" className={boton.primario}>Subir y analizar CVs</Link>
       </div>

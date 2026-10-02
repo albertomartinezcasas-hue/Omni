@@ -37,7 +37,7 @@ function limpiarNombre(nombre: string) {
  */
 export async function subirCv(
   actor: Actor,
-  entrada: { nombreArchivo: string; contenido: Buffer; forzar: boolean },
+  entrada: { nombreArchivo: string; contenido: Buffer; forzar: boolean; sinAnalisisIA?: boolean },
 ): Promise<ResultadoCarga> {
   const { contenido } = entrada;
   if (contenido.length === 0) throw new ErrorNegocio("El archivo está vacío.");
@@ -78,6 +78,13 @@ export async function subirCv(
     }
   }
 
+  // Si el mismo candidato (mismo texto o correo) ya se había opuesto al análisis con IA, la oposición se hereda.
+  const oposicionPrevia =
+    (await db.cv.count({
+      where: { sinAnalisisIA: true, OR: [{ hashTexto }, ...(correoCandidato ? [{ correoCandidato }] : [])] },
+    })) > 0;
+  const sinAnalisisIA = entrada.sinAnalisisIA === true || oposicionPrevia;
+
   const sinTexto = !esTextoLegible(texto);
   const nombreArchivo = limpiarNombre(entrada.nombreArchivo);
   const archivoId = await guardarArchivo(contenido);
@@ -93,6 +100,7 @@ export async function subirCv(
           hashTexto,
           correoCandidato,
           estado: sinTexto ? ESTADO_SIN_TEXTO : "CON_TEXTO",
+          sinAnalisisIA,
           subidoPorId: actor.id,
         },
       });
@@ -102,7 +110,13 @@ export async function subirCv(
           accion: "CV_SUBIDO",
           entidadTipo: "CV",
           entidadId: creado.id,
-          detalle: { archivo: nombreArchivo, tipo, sinTexto, duplicadoConfirmado: entrada.forzar },
+          detalle: {
+            archivo: nombreArchivo,
+            tipo,
+            sinTexto,
+            duplicadoConfirmado: entrada.forzar,
+            ...(sinAnalisisIA ? { oposicionIA: true } : {}),
+          },
         },
         tx,
       );
