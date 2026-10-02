@@ -141,12 +141,45 @@ describe("Respaldo entre proveedores", () => {
     expect(llamadas.map((l) => l.baseURL)).toEqual([GEMINI]);
   });
 
-  it("un error no recuperable (401) no pasa al siguiente y da un mensaje genérico", async () => {
+  it("con clave inválida (401) salta los demás modelos de ese proveedor y prueba el siguiente proveedor", async () => {
+    process.env.GROQ_MODEL = "g1,g2";
     comportamiento.set(GROQ, status(401));
     comportamiento.set(GEMINI, ok("gemini-3.8-flash"));
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const r = await solicitarExtraccion("s", "cv");
+    expect(r.proveedor).toBe("gemini");
+    expect(llamadas.map((l) => l.modelo)).toEqual(["g1", "gemini-3.8-flash"]);
+  });
+
+  it("si todas las claves son inválidas, mensaje genérico para avisar al Admin", async () => {
+    comportamiento.set(GROQ, status(401));
+    comportamiento.set(GEMINI, status(403));
+    vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(solicitarExtraccion("s", "cv")).rejects.toThrow("La clave de un servicio de análisis no es válida");
+    expect(llamadas).toHaveLength(2);
+  });
+
+  it("un error no recuperable (400) no sigue con la cadena", async () => {
+    comportamiento.set(GROQ, status(400));
+    comportamiento.set(GEMINI, ok("gemini-3.8-flash"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(solicitarExtraccion("s", "cv")).rejects.toThrow();
     expect(llamadas).toHaveLength(1);
+  });
+
+  it("el reintento empieza por el modelo que ya respondió", async () => {
+    process.env.IA_PROVEEDORES = "groq,gemini";
+    comportamiento.set(GEMINI, ok("gemini-3.7-flash"));
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await solicitarExtraccion("s", "cv", 60_000, { proveedor: "gemini", modelo: "gemini-3.7-flash" });
+    expect(llamadas.map((l) => l.modelo)).toEqual(["gemini-3.7-flash"]);
+  });
+
+  it("limita la lista a 10 modelos por proveedor", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const modelos = Array.from({ length: 15 }, (_, i) => `m${i}`).join(",");
+    expect(proveedoresConfigurados({ IA_PROVEEDORES: "x", X_API_KEY: "k", X_BASE_URL: "https://x.test/v1", X_MODEL: modelos })).toHaveLength(10);
   });
 
   it("si todos fallan con 429, avisa que están saturados", async () => {

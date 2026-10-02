@@ -42,6 +42,8 @@ const CONOCIDOS: Record<string, Partial<Omit<ProveedorIA, "nombre" | "apiKey">>>
 };
 
 const ORDEN_POR_DEFECTO = "groq,gemini";
+/** Tope de modelos por proveedor: limita cuántas llamadas puede encadenar un solo análisis. */
+const MAX_MODELOS = 10;
 
 function variable(env: Record<string, string | undefined>, nombre: string, sufijo: string) {
   const valor = env[`${nombre.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_${sufijo}`];
@@ -77,7 +79,11 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
       continue;
     }
     const formatoVar = variable(env, nombre, "FORMATO_JSON");
-    const modelos = [...new Set(modelo.split(",").map((m) => m.trim()).filter(Boolean))];
+    let modelos = [...new Set(modelo.split(",").map((m) => m.trim()).filter(Boolean))];
+    if (modelos.length > MAX_MODELOS) {
+      console.warn(`[analizador] ${nombre}: se usan solo los primeros ${MAX_MODELOS} modelos de la lista`);
+      modelos = modelos.slice(0, MAX_MODELOS);
+    }
     for (const m of modelos) {
       lista.push({
         nombre,

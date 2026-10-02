@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { analizarCvAccion } from "@/acciones/analisis";
 import { archivarVacanteAccion, crearVacanteAccion } from "@/acciones/vacantes";
 import { solicitarExtraccion } from "@/lib/analizador/cliente";
+import { conLimiteDeAnalisis, MAX_ANALISIS_POR_MINUTO, reiniciarLimites } from "@/lib/analizador/limite";
 import { ocultarDatosPersonales } from "@/lib/analizador/ocultar";
 import { mensajeUsuario } from "@/lib/analizador/prompt";
 import { extraerEvidencia, vacanteEvaluada } from "@/lib/analizador/servicio";
@@ -197,17 +198,18 @@ describe("Paso 3 — Verificación de citas", () => {
 describe("Paso 2 — Extracción con un solo reintento", () => {
   beforeEach(() => {
     api.mockReset();
+    reiniciarLimites();
   });
 
   it("reintenta una vez si el JSON es inválido", async () => {
-    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m", proveedor: "groq" });
+    api.mockResolvedValueOnce({ json: "{no es json", modelo: "m", modeloSolicitado: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify(extraccion()), modelo: "m", modeloSolicitado: "m", proveedor: "groq" });
     const r = await extraerEvidencia(VACANTE, "texto", new Date());
     expect(r.modelo).toBe("m");
     expect(api).toHaveBeenCalledTimes(2);
   });
 
   it("si el JSON vuelve a fallar (o no cumple el esquema), lanza error", async () => {
-    api.mockResolvedValueOnce({ json: "{}", modelo: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m", proveedor: "groq" });
+    api.mockResolvedValueOnce({ json: "{}", modelo: "m", modeloSolicitado: "m", proveedor: "groq" }).mockResolvedValueOnce({ json: JSON.stringify({ ...extraccion(), preguntas: [] }), modelo: "m", modeloSolicitado: "m", proveedor: "groq" });
     await expect(extraerEvidencia(VACANTE, "texto", new Date())).rejects.toThrow("no tuvo el formato esperado");
     expect(api).toHaveBeenCalledTimes(2);
   });
@@ -245,6 +247,7 @@ describe("Análisis completo (API simulada)", () => {
 
   beforeEach(() => {
     api.mockReset();
+    reiniciarLimites();
   });
 
   it("Subir CVs y analizarlos: Usuario ✅ Admin ✅; veredicto y puntaje los calcula el código", async () => {
@@ -258,6 +261,7 @@ describe("Análisis completo (API simulada)", () => {
         ],
       })),
       modelo: "openai/gpt-oss-120b",
+      modeloSolicitado: "m",
       proveedor: "groq",
     });
     for (const u of [usuario, admin]) {
@@ -318,5 +322,26 @@ describe("Análisis completo (API simulada)", () => {
   it("vacanteEvaluada conserva los requisitos con sus ids", async () => {
     const v = await db.vacante.findUniqueOrThrow({ where: { id: vacanteId } });
     expect(vacanteEvaluada(v).obligatorios).toEqual([{ id: "O1", texto: "SQL" }, { id: "O2", texto: "Excel avanzado" }]);
+  });
+});
+
+describe("Límite de uso del analizador", () => {
+  beforeEach(() => {
+    reiniciarLimites();
+  });
+
+  it("no permite analizar el mismo CV con la misma vacante dos veces en paralelo", async () => {
+    let liberar!: () => void;
+    const primero = conLimiteDeAnalisis("u1", "cv1", "v1", () => new Promise<void>((r) => (liberar = r)));
+    await expect(conLimiteDeAnalisis("u1", "cv1", "v1", async () => {})).rejects.toThrow("ya se está analizando");
+    liberar();
+    await primero;
+    await expect(conLimiteDeAnalisis("u1", "cv1", "v1", async () => "ok")).resolves.toBe("ok");
+  });
+
+  it(`limita a ${MAX_ANALISIS_POR_MINUTO} análisis por minuto por usuario`, async () => {
+    for (let i = 0; i < MAX_ANALISIS_POR_MINUTO; i++) await conLimiteDeAnalisis("u1", `cv${i}`, "v1", async () => {});
+    await expect(conLimiteDeAnalisis("u1", "cvX", "v1", async () => {})).rejects.toThrow("límite");
+    await expect(conLimiteDeAnalisis("u2", "cvX", "v1", async () => "ok")).resolves.toBe("ok");
   });
 });

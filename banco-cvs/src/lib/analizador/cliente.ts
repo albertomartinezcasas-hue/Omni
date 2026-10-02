@@ -37,7 +37,8 @@ function esquemaEstricto(nodo: unknown): unknown {
 
 export const ESQUEMA_JSON = esquemaEstricto(z.toJSONSchema(esquemaExtraccion)) as Record<string, unknown>;
 
-export type RespuestaIA = { json: string; modelo: string; proveedor: string };
+/** `modelo` es el que reporta el proveedor; `modeloSolicitado`, el configurado (para reanudar la cadena). */
+export type RespuestaIA = { json: string; modelo: string; modeloSolicitado: string; proveedor: string };
 
 /** Errores por los que se pasa al siguiente proveedor: 429, 5xx, tiempo agotado o sin conexión. */
 function esRecuperable(error: unknown) {
@@ -75,49 +76,69 @@ async function llamar(p: ProveedorIA, sistema: string, usuario: string, tiempoMs
   return { json: opcion.message.content ?? "", modelo: respuesta.model || p.modelo };
 }
 
+function esClaveInvalida(error: unknown) {
+  return error instanceof OpenAI.AuthenticationError || error instanceof OpenAI.PermissionDeniedError;
+}
+
 /**
- * Pide la extracción a los proveedores en orden de respaldo. Ante 429, 5xx, tiempo agotado o sin conexión
- * pasa al siguiente. El log registra qué proveedor respondió o falló, nunca el contenido del CV ni del prompt.
+ * Pide la extracción a los proveedores en orden de respaldo. Ante 429, 404, 5xx, tiempo agotado o sin conexión
+ * pasa al siguiente modelo; ante una clave inválida (401/403) salta los demás modelos de ese proveedor.
+ * `desde` permite empezar por el proveedor y modelo que ya respondió (reintento por JSON inválido).
+ * El log registra qué proveedor respondió o falló, nunca el contenido del CV ni del prompt.
  */
 export async function solicitarExtraccion(
   sistema: string,
   mensaje: string,
   tiempoMs: number = TIEMPO_MAXIMO_MS,
+  desde?: { proveedor: string; modelo: string },
 ): Promise<RespuestaIA> {
-  const proveedores = proveedoresConfigurados();
+  const configurados = proveedoresConfigurados();
+  const inicioCadena = desde ? configurados.findIndex((p) => p.nombre === desde.proveedor && p.modelo === desde.modelo) : -1;
+  const proveedores = inicioCadena > 0 ? configurados.slice(inicioCadena) : configurados;
   if (proveedores.length === 0) {
     console.error("[analizador] Ningún proveedor de IA configurado (faltan claves *_API_KEY).");
     throw new ErrorNegocio("El análisis automático no está disponible por ahora. Avisa a un Admin.");
   }
   const limite = Date.now() + tiempoMs;
   let ultimo: unknown = null;
+  const sinClaveValida = new Set<string>();
   for (const p of proveedores) {
+    if (sinClaveValida.has(p.nombre)) continue;
     const restante = limite - Date.now();
     if (restante < 3_000) break;
     const inicio = Date.now();
     try {
       const r = await llamar(p, sistema, mensaje, restante);
       console.info(`[analizador] Respondió ${p.nombre} (${r.modelo}) en ${Date.now() - inicio} ms`);
-      return { ...r, proveedor: p.nombre };
+      return { ...r, modeloSolicitado: p.modelo, proveedor: p.nombre };
     } catch (error) {
       // La generación no cumplió el esquema estricto: se trata como JSON inválido (usa el único reintento).
       if (error instanceof OpenAI.BadRequestError && JSON.stringify(error.error ?? {}).includes("json_validate_failed")) {
         console.warn(`[analizador] ${p.nombre}: la respuesta no cumplió el esquema`);
-        return { json: "", modelo: p.modelo, proveedor: p.nombre };
+        return { json: "", modelo: p.modelo, modeloSolicitado: p.modelo, proveedor: p.nombre };
       }
       if (error instanceof ErrorApiAnalizador) throw error;
-      console.warn(`[analizador] ${p.nombre} (${p.modelo}) falló (${describir(error)})${esRecuperable(error) ? "; se intenta el siguiente" : ""}`);
       ultimo = error;
+      if (esClaveInvalida(error)) {
+        // Clave revocada o sin permiso: los demás modelos del mismo proveedor fallarían igual.
+        console.error(`[analizador] ${p.nombre} rechazó la clave (${describir(error)}); se intenta el siguiente proveedor`);
+        sinClaveValida.add(p.nombre);
+        continue;
+      }
+      console.warn(`[analizador] ${p.nombre} (${p.modelo}) falló (${describir(error)})${esRecuperable(error) ? "; se intenta el siguiente" : ""}`);
       if (!esRecuperable(error)) break;
     }
   }
-  if (ultimo instanceof OpenAI.APIConnectionTimeoutError || ultimo === null) {
+  if (ultimo === null) {
+    throw new ErrorApiAnalizador("No quedó tiempo para consultar los servicios de análisis.");
+  }
+  if (ultimo instanceof OpenAI.APIConnectionTimeoutError) {
     throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
   }
   if (ultimo instanceof OpenAI.RateLimitError) {
     throw new ErrorApiAnalizador("Los servicios de análisis están saturados. Intenta en unos minutos.");
   }
-  if (ultimo instanceof OpenAI.AuthenticationError || ultimo instanceof OpenAI.PermissionDeniedError) {
+  if (esClaveInvalida(ultimo)) {
     throw new ErrorApiAnalizador("La clave de un servicio de análisis no es válida. Avisa a un Admin.");
   }
   if (ultimo instanceof OpenAI.APIConnectionError) {

@@ -217,3 +217,29 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - `GEMINI_MODEL` (y cualquier `*_MODEL`) acepta una lista separada por comas. El cupo gratuito de Gemini es por modelo: `gemini-3.8-flash` solo permite 20 peticiones al día. Por eso, si un modelo responde 429, 5xx, 404 o se agota el tiempo, se usa el siguiente.
 - Orden por defecto: 3.8-flash → 3.7-flash → 3.6-flash → 3.5-flash → flash-latest → 3.5-flash-lite → 3.1-flash-lite → flash-lite-latest. Se probó en vivo: con el cupo de 3.8 agotado, respondió 3.7-flash.
 - **Media**: los modelos "lite" son menos precisos con las citas. En la validación de 9 CV, `gemini-3.5-flash-lite` acertó 7 de 9: en el 07 y el 09 dio citas que no coinciden con el CV. El código las rechazó y marcó "revisar manualmente", así que el error es conservador y no infla puntajes. En esos casos conviene que un reclutador lo revise o que lo reanalice con un modelo flash.
+
+### Validación de expertos tras quitar la anonimización y agregar la cadena de modelos
+
+#### revisor-seguridad: APROBADO CON AJUSTES (sin hallazgos Alta)
+
+- Corregido (Media): límite de 10 análisis por minuto por usuario y de un solo análisis a la vez por CV y vacante (`limite.ts`). El límite vive en memoria, así que vale para una sola instancia; si se escala a varias, debe pasar a la base de datos.
+- Corregido (Baja): tope de 10 modelos por proveedor.
+- Corregido (Baja): un 401/403 ya no corta la cadena. Salta los demás modelos de ese proveedor y prueba el siguiente proveedor.
+- Corregido (Baja): mensaje propio cuando no queda tiempo para consultar.
+- Corregido (Baja): el reintento por JSON inválido empieza por el modelo que respondió.
+
+#### experto-reclutamiento: APROBADO CON AJUSTES (hallazgos Alta pendientes de la decisión del usuario, porque cambian reglas del veredicto)
+
+- **Alta (decisión)**: un obligatorio omitido por la IA produce un NO VIABLE sin aviso. Propuesta: "Pendiente de revisión" en lugar de NO VIABLE cuando el análisis lo hizo un modelo lite o cuando hay citas no verificadas.
+- **Alta (decisión)**: la relevancia de los puestos la decide solo la IA y puede dejar E=0. Propuesta: marcar "revisar" si, sumando los puestos no relevantes, se alcanza el mínimo.
+- **Alta (decisión, contradice una regla del usuario)**: la regla "2019–2021 = 2 años" junto con E=0 puede descartar a alguien por meses. Propuesta: "confirmar en entrevista" cuando la lectura máxima de las fechas cumple el mínimo.
+- **Alta (riesgo aceptado)**: LFPDPPP; los datos van a planes gratuitos fuera de México. Falta el aviso de privacidad.
+- **Media**:
+  - un puesto de un solo año ("2022") cuenta cero;
+  - las fechas sin mes se leen con criterio asimétrico (inicio en enero, fin en diciembre del año anterior);
+  - un mismo lote puede analizarse con modelos distintos;
+  - validar con 30 o más CV reales comparados contra la decisión de un reclutador.
+- **Baja**:
+  - los pesos están escritos a mano en la pantalla;
+  - los puestos descartados aparecen dos veces;
+  - `cualidadesDescartadas` no se muestra.

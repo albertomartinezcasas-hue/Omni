@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
+import { conLimiteDeAnalisis } from "./limite";
 import { ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
@@ -23,10 +24,13 @@ export async function extraerEvidencia(
 ) {
   const mensaje = mensajeUsuario(vacante, textoOculto, fechaAnalisis);
   const limite = Date.now() + TIEMPO_MAXIMO_MS;
+  // El reintento empieza por el modelo que respondió: no se vuelve a gastar el cupo de los anteriores.
+  let desde: { proveedor: string; modelo: string } | undefined;
   for (let intento = 1; intento <= 2; intento++) {
     const restante = limite - Date.now();
     if (restante < MIN_TIEMPO_REINTENTO_MS) throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
-    const respuesta = await solicitarExtraccion(PROMPT_SISTEMA, mensaje, restante);
+    const respuesta = await solicitarExtraccion(PROMPT_SISTEMA, mensaje, restante, desde);
+    desde = { proveedor: respuesta.proveedor, modelo: respuesta.modeloSolicitado };
     let datos: unknown;
     try {
       datos = JSON.parse(respuesta.json);
@@ -99,7 +103,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
 
   let ext: Awaited<ReturnType<typeof extraerEvidencia>>;
   try {
-    ext = await extraerEvidencia(evaluada, textoOculto, fechaAnalisis);
+    ext = await conLimiteDeAnalisis(actor.id, cvId, vacanteId, () => extraerEvidencia(evaluada, textoOculto, fechaAnalisis));
   } catch (error) {
     if (error instanceof ErrorApiAnalizador) throw new ErrorNegocio(`${error.motivo} Usa «Reintentar».`);
     throw error;
