@@ -92,6 +92,8 @@ export type ResultadoVerificado = {
       inicio: string;
       fin: string;
       anios: number;
+      /** La cita no trae meses: se contó de forma conservadora; confirmar en entrevista. */
+      fechasSinMes: boolean;
       cita: string;
     }[];
     puestosDescartados: number;

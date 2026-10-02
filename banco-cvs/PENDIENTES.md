@@ -99,3 +99,15 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Baja] Equivalencias MCER, cualidades ligadas a hechos y preguntas concretas en el prompt. — **Hecho.**
 - [Baja] Distinguir "No viable (requisito)" de "No viable (puntaje)". — **Hecho** en `categoriaMostrada.causaNoViable`; se mostrará en la Fase 3.
 - [Baja] Texto de ayuda: los deseables bajan el puntaje de quien no los tiene. — **Hecho.**
+
+### Ronda 2 de la Fase 2 (ambos expertos: APROBADO CON AJUSTES, sin hallazgos Alta)
+- [Media] (reclutamiento) Año sin mes inflaba la experiencia ("2025 – actual" contaba desde enero). — **Corregido**: criterio conservador (inicio en diciembre, fin en enero), marca `fechasSinMes` y nota "confirmar en entrevista" en el motivo; "desde 2021" se toma como "hasta la fecha".
+- [Media] (reclutamiento) CVs a dos columnas: la IA podría no encontrar en un fragmento continuo el puesto junto con sus fechas, y el candidato saldría NO VIABLE. — **Mitigado**: el prompt permite fragmentos de varios renglones y el motivo indica cuántos puestos se descartaron. **Pendiente**: validar con 10 a 20 CVs reales antes de producción.
+- [Baja] (reclutamiento) "Actual" en hora local y `fecha_de_analisis` en UTC. — **Corregido**: ambos usan la fecha de CDMX.
+- [Baja] (reclutamiento) El conteo de meses incluye el mes de inicio y el de término. — Pendiente: documentarlo en el detalle (Fase 3).
+- [Media] (seguridad) Una cita larga con varios rangos de fechas inflaba la duración. — **Corregido**: más de dos marcas de fecha = puesto descartado, con prueba.
+- [Media] (seguridad) Falsos positivos: "Dirección Comercial" borrada y "ASP.NET" convertida en [URL]. — **Corregido** con pruebas.
+- [Baja] (seguridad) Rangos de años unidos que se tomaban como teléfono. — **Corregido** con prueba.
+- [Baja] (seguridad) "Tengo 32 años." no se ocultaba. — **Corregido** en el ocultamiento previo a la API.
+- [Baja] (seguridad) Riesgo aceptado: los teléfonos locales de 8 dígitos no se ocultan (se parecen a rangos de años) y llegan a la API.
+- [Baja] (seguridad) Los niveles y la relevancia siguen siendo un juicio de la IA, limitado por la verificación de citas. — Pendiente (Fase 3): mostrar la cita junto a cada requisito para que una persona la revise.

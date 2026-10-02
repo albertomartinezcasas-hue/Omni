@@ -1,7 +1,7 @@
 // Paso 3 — Verificación (código): toda cita debe existir literalmente en el texto del CV.
 import { ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, NIVELES_ESTUDIO, NIVELES_IDIOMA } from "@/lib/catalogos";
 import { coincidenciasProtegidas, enmascararProtegidos } from "./atributosProtegidos";
-import { aniosDePeriodo, aniosSinTraslapes, formatoMes, periodoDeCita } from "./fechas";
+import { aniosDePeriodo, aniosSinTraslapes, fechaCdmx, formatoMes, periodoDeCita } from "./fechas";
 import { ocultarDatosPersonales } from "./ocultar";
 import type { Extraccion, ResultadoVerificado, VacanteEvaluada } from "./tipos";
 
@@ -154,10 +154,11 @@ export function verificarExtraccion(
         inicio: formatoMes(p.periodo.inicio),
         fin: formatoMes(p.periodo.fin),
         anios: aniosDePeriodo(p.periodo),
+        fechasSinMes: p.periodo.sinMes,
         cita: citaSegura(p.cita),
       })),
       puestosDescartados: extraccion.puestos.length - puestos.length,
-      fechaAnalisis: fechaAnalisis.toISOString().slice(0, 10),
+      fechaAnalisis: fechaCdmx(fechaAnalisis).iso,
     },
     estudios,
     idiomas,

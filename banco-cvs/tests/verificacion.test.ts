@@ -36,14 +36,29 @@ function extraccion(parcial: Partial<Extraccion>): Extraccion {
 describe("Fechas y años (calculados en código)", () => {
   it.each([
     ["ene 2023 - dic 2025", 3],
-    ["2019 - 2022", 4],
     ["03/2021 – 08/2021", 0.5],
-    ["mar 2025 - actual", 1.7], // hasta oct 2026 (fecha del análisis)
-    ["2024 - presente", 2.8],
-    ["2021", 1],
+    ["mar 2025 - actual", 1.7], // hasta oct 2026 (fecha del análisis en CDMX)
+    // Sin mes, criterio conservador: inicio en diciembre, fin en enero.
+    ["2019 - 2022", 2.2], // dic 2019 – ene 2022 = 26 meses
+    ["2024 - presente", 1.9], // dic 2024 – oct 2026 = 23 meses
+    ["2025 - actual", 0.9], // dic 2025 – oct 2026 = 11 meses
+    ["2024 - 2024", 0.1], // un mes
+    ["desde 2021", 4.9], // dic 2021 – oct 2026
   ])("%s → %s años", (cita, anios) => {
     const p = periodoDeCita(cita, FECHA)!;
     expect(aniosSinTraslapes([p])).toBe(anios);
+  });
+
+  it("marca los periodos sin mes y usa la fecha de CDMX (no UTC) para «actual»", () => {
+    expect(periodoDeCita("2019 - 2022", FECHA)!.sinMes).toBe(true);
+    expect(periodoDeCita("ene 2023 - dic 2025", FECHA)!.sinMes).toBe(false);
+    // 1 de nov 2026 a las 02:00 UTC = 31 de oct 2026 a las 20:00 en CDMX.
+    const p = periodoDeCita("oct 2026 - actual", new Date("2026-11-01T02:00:00Z"))!;
+    expect(p.fin - p.inicio).toBe(0);
+  });
+
+  it("descarta citas con más de un rango (no se puede inflar un puesto citando un bloque largo)", () => {
+    expect(periodoDeCita("Bachillerato 2005-2008\nGerente, Acme, 2023-actual", FECHA)).toBeNull();
   });
 
   it("no cuenta dos veces los traslapes y descarta citas sin año", () => {

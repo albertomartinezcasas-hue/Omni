@@ -67,8 +67,15 @@ export function calificar(r: ResultadoVerificado): Calificacion {
         : `No se encontró evidencia de: ${q.texto}`,
     );
   if (r.experiencia.anios < r.experiencia.minimo) {
+    const notas = [
+      `se encontraron ${r.experiencia.anios}`,
+      ...(r.experiencia.puestosDescartados > 0
+        ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto descartado" : "puestos descartados"} por falta de fechas o cita verificable; revisar el CV`]
+        : []),
+      ...(r.experiencia.puestos.some((p) => p.fechasSinMes) ? ["fechas sin mes; confirmar en entrevista"] : []),
+    ];
     motivosNoViable.push(
-      `No se encontró evidencia de: ${r.experiencia.minimo} ${r.experiencia.minimo === 1 ? "año" : "años"} de experiencia relevante (se encontraron ${r.experiencia.anios})`,
+      `No se encontró evidencia de: ${r.experiencia.minimo} ${r.experiencia.minimo === 1 ? "año" : "años"} de experiencia relevante (${notas.join("; ")})`,
     );
   }
 

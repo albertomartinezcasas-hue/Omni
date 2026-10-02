@@ -1,4 +1,5 @@
 import { ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, ETIQUETA_MODALIDAD, type Modalidad } from "@/lib/catalogos";
+import { fechaCdmx } from "./fechas";
 import type { VacanteEvaluada } from "./tipos";
 
 export const PROMPT_SISTEMA = `Eres un asistente de reclutamiento que EXTRAE EVIDENCIA de un CV frente a una vacante. No decides si el candidato es viable ni le pones puntaje: eso lo calcula otro sistema a partir de tu evidencia.
@@ -11,7 +12,7 @@ Reglas de seguridad:
 Reglas de evidencia:
 - Toda cita debe ser una copia LITERAL y continua de un fragmento del CV de al menos 3 palabras (máximo unas 25), sin parafrasear, sin unir fragmentos separados y sin agregar puntos suspensivos. Si no puedes citar literalmente, no hay evidencia.
 - Requisitos: para cada requisito de la vacante (por su id) asigna nivel 0 = no aparece; 1 = se menciona sin detalle; 2 = se demuestra con un puesto, proyecto, años o logro concreto. Para nivel 1 o 2 la cita es obligatoria; para nivel 0 la cita es null. Incluye TODOS los ids de requisitos, una vez cada uno.
-- Puestos: lista solo los puestos con experiencia relevante para la vacante. Cuentan empleos, prácticas profesionales y trabajo independiente (freelance) con fechas; NO cuentan el servicio social ni los proyectos escolares. Indica el tipo (EMPLEO, PRACTICAS o FREELANCE). La cita debe ser el renglón donde aparecen el puesto, la empresa y las fechas con los años escritos (ej. "ene 2021 - mar 2023" o "2022 - actual"); "puesto" y "empresa" deben copiarse tal como aparecen en esa cita. Los años los calcula el sistema con esas fechas. Si un puesto no tiene fechas, no lo incluyas.
+- Puestos: lista solo los puestos con experiencia relevante para la vacante. Cuentan empleos, prácticas profesionales y trabajo independiente (freelance) con fechas; NO cuentan el servicio social ni los proyectos escolares. Indica el tipo (EMPLEO, PRACTICAS o FREELANCE). La cita debe ser el fragmento continuo (puede abarcar varios renglones) donde aparecen el puesto, la empresa y las fechas con los años escritos (ej. "ene 2021 - mar 2023" o "2022 - actual"); "puesto" y "empresa" deben copiarse tal como aparecen en esa cita. Los años los calcula el sistema con esas fechas. Si un puesto no tiene fechas, no lo incluyas.
 - Estudios: el nivel MÁS ALTO concluido o en curso según el CV (NINGUNO, SECUNDARIA, BACHILLERATO, TECNICO, LICENCIATURA, MAESTRIA, DOCTORADO) con su estatus (CONCLUIDO, TITULADO, EN_CURSO, TRUNCO o NO_ESPECIFICADO) y cita, o NO_ESPECIFICADO con cita null.
 - Idiomas: solo los idiomas que pide la vacante, escritos igual que en la vacante, con nivel BASICO, INTERMEDIO, AVANZADO o NATIVO y cita; si el CV no indica el nivel, NO_ESPECIFICADO con cita null. Equivalencias: A1-A2 = BASICO; B1-B2 o "conversacional" = INTERMEDIO; C1 = AVANZADO; C2 o lengua materna = NATIVO. Para exámenes (TOEFL, IELTS, etc.) usa su equivalencia MCER.
 - Cualidades: de 3 a 5 cualidades principales del candidato para esta vacante, cada una ligada a un requisito o a un logro concreto y medible, con su cita. Evita rasgos de personalidad genéricos ("proactivo", "trabajo en equipo") sin un hecho que los respalde.
@@ -27,7 +28,7 @@ function encapsularCv(texto: string) {
 
 export function mensajeUsuario(vacante: VacanteEvaluada, textoOculto: string, fechaAnalisis: Date) {
   const datosVacante = {
-    fecha_de_analisis: fechaAnalisis.toISOString().slice(0, 10),
+    fecha_de_analisis: fechaCdmx(fechaAnalisis).iso,
     titulo: vacante.titulo,
     area: vacante.area,
     descripcion: vacante.descripcion,
