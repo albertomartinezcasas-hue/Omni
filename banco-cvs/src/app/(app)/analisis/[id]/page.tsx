@@ -327,6 +327,9 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
             {puedeReanalizar && !a.desactualizado && (
               <BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} />
             )}
+            {a.cv.sinAnalisisIA && (
+              <span className="self-center text-sm text-slate-700">No se puede re-analizar: el candidato se opuso al análisis con IA.</span>
+            )}
           </div>
         </div>
       </div>

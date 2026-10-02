@@ -86,6 +86,8 @@ async function barrerHuerfanos(ahora: Date) {
     return; // aún no existe storage/
   }
   const existentes = new Set((await db.cv.findMany({ select: { archivoId: true } })).map((c) => c.archivoId));
+  // Base vacía con archivos en disco: probablemente DATABASE_URL apunta a otra base. No se barre nada.
+  if (existentes.size === 0) return;
   for (const nombre of nombres) {
     if (existentes.has(nombre)) continue;
     try {

@@ -295,3 +295,10 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Corregido (Media): botón «Registrar oposición»; el diálogo usa un id único con `useId`; la página del CV muestra «Se eliminará: fecha».
   - Corregido (Baja): la página del análisis explica por qué no se puede re-analizar.
   - **Media (decisión del usuario)**: el plazo de 1 día no se repite en la página de subida.
+- Ronda 2: revisor-seguridad y ux-ui-reviewer, **APROBADO CON AJUSTES** (sin hallazgos Alta).
+  - Corregido: el barrido de huérfanos no hace nada si la base de datos no tiene CVs (protege contra un `DATABASE_URL` equivocado).
+  - Corregido: un `CONSERVACION_DIAS` inválido impide arrancar el servidor.
+  - Corregido: la oposición heredada se muestra como «Guardado sin analizar», no como error.
+  - Corregido: la casilla se desmarca después de cada lote.
+  - Corregido: nota de «No se puede re-analizar» también abajo en la página del análisis.
+  - **Baja (documentado)**: la oposición se hereda solo de CVs que todavía existen; si el original ya se purgó, hay que volver a marcarla.

@@ -16,6 +16,7 @@ type Estado =
   | { tipo: "PROCESANDO"; paso: "Subiendo" | "Analizando" }
   | { tipo: "LISTO"; cvId: string; analisisId?: string }
   | { tipo: "SIN_TEXTO"; cvId: string }
+  | { tipo: "SIN_IA"; cvId: string; heredada: boolean }
   | { tipo: "DUPLICADO"; duplicados: CvDuplicado[] }
   | { tipo: "CANCELADO" }
   | { tipo: "ERROR"; motivo: string; cvId?: string };
@@ -28,6 +29,7 @@ const ETIQUETA: Record<Estado["tipo"], string> = {
   PROCESANDO: "Procesando",
   LISTO: "Listo",
   SIN_TEXTO: "Guardado sin analizar",
+  SIN_IA: "Guardado sin analizar",
   DUPLICADO: "Posible duplicado",
   CANCELADO: "Cancelado",
   ERROR: "Error",
@@ -38,6 +40,7 @@ const COLOR: Record<Estado["tipo"], string> = {
   PROCESANDO: "bg-blue-100 text-blue-900",
   LISTO: "bg-green-100 text-green-900",
   SIN_TEXTO: "bg-amber-100 text-amber-900",
+  SIN_IA: "bg-slate-100 text-slate-800",
   DUPLICADO: "bg-amber-100 text-amber-900",
   CANCELADO: "bg-slate-100 text-slate-800",
   ERROR: "bg-red-100 text-red-900",
@@ -47,7 +50,7 @@ async function subir(
   archivo: File,
   forzar: boolean,
   sinAnalisisIA: boolean,
-): Promise<Estado | { tipo: "SUBIDO"; cvId: string; sinTexto: boolean }> {
+): Promise<Estado | { tipo: "SUBIDO"; cvId: string; sinTexto: boolean; sinAnalisisIA: boolean }> {
   if (archivo.size > TAMANO_MAXIMO) return { tipo: "ERROR", motivo: "El archivo supera 10 MB." };
   const datos = new FormData();
   datos.append("archivo", archivo);
@@ -57,7 +60,9 @@ async function subir(
     const respuesta = await fetch("/api/cvs", { method: "POST", body: datos });
     const cuerpo = (await respuesta.json().catch(() => ({}))) as ResultadoCarga | { estado?: undefined; error?: string };
     if (respuesta.status === 401) return { tipo: "ERROR", motivo: "Tu sesión expiró. Vuelve a iniciar sesión." };
-    if (cuerpo.estado === "GUARDADO") return { tipo: "SUBIDO", cvId: cuerpo.id, sinTexto: cuerpo.sinTexto };
+    if (cuerpo.estado === "GUARDADO") {
+      return { tipo: "SUBIDO", cvId: cuerpo.id, sinTexto: cuerpo.sinTexto, sinAnalisisIA: cuerpo.sinAnalisisIA };
+    }
     if (cuerpo.estado === "DUPLICADO") return { tipo: "DUPLICADO", duplicados: cuerpo.duplicados };
     return { tipo: "ERROR", motivo: ("error" in cuerpo && cuerpo.error) || "No se pudo subir el archivo." };
   } catch {
@@ -94,14 +99,21 @@ export function CargaCvs({
     const vacante = vacantePorArchivo.current.get(tarea.clave) ?? "";
     let cvId = tarea.cvId;
     let sinTexto = false;
+    let sinAnalisisIA = false;
     if (!cvId) {
       actualizar(tarea.clave, { tipo: "PROCESANDO", paso: "Subiendo" });
       const subida = await subir(archivo, tarea.forzar, oposicionPorArchivo.current.get(tarea.clave) === true);
       if (subida.tipo !== "SUBIDO") return actualizar(tarea.clave, subida);
       cvId = subida.cvId;
       sinTexto = subida.sinTexto;
+      sinAnalisisIA = subida.sinAnalisisIA;
     }
     if (sinTexto) return actualizar(tarea.clave, { tipo: "SIN_TEXTO", cvId });
+    if (sinAnalisisIA) {
+      // Con oposición registrada (marcada ahora o heredada de otro CV del mismo candidato) no se analiza.
+      const heredada = oposicionPorArchivo.current.get(tarea.clave) !== true;
+      return actualizar(tarea.clave, { tipo: "SIN_IA", cvId, heredada });
+    }
     if (!vacante) return actualizar(tarea.clave, { tipo: "LISTO", cvId });
     actualizar(tarea.clave, { tipo: "PROCESANDO", paso: "Analizando" });
     try {
@@ -148,6 +160,8 @@ export function CargaCvs({
     nuevas.forEach((f) => cola.current.push({ clave: f.clave, forzar: false }));
     siguiente();
     if (entrada.current) entrada.current.value = "";
+    // La oposición vale solo para este lote (queda fijada por archivo): el siguiente lote empieza sin marcar.
+    setOposicionIA(false);
   }
 
   const pendientes = filas.filter((f) => f.estado.tipo === "EN_COLA" || f.estado.tipo === "PROCESANDO").length;
@@ -290,6 +304,17 @@ function DetalleFila({
 }) {
   const { estado, clave } = fila;
   switch (estado.tipo) {
+    case "SIN_IA":
+      return (
+        <div className="flex flex-wrap items-center gap-3">
+          <span>
+            {estado.heredada
+              ? "El candidato ya se había opuesto al análisis con IA: se guardó sin analizar."
+              : "Se guardó con la oposición al análisis con IA registrada."}
+          </span>
+          <Link href={`/cvs/${estado.cvId}`} className={boton.enlace}>Ver CV</Link>
+        </div>
+      );
     case "SIN_TEXTO":
       return (
         <div className="flex flex-wrap items-center gap-3">

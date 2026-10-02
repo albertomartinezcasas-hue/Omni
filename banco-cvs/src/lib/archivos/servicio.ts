@@ -22,7 +22,7 @@ export type CvDuplicado = {
 };
 
 export type ResultadoCarga =
-  | { estado: "GUARDADO"; id: string; sinTexto: boolean }
+  | { estado: "GUARDADO"; id: string; sinTexto: boolean; sinAnalisisIA: boolean }
   | { estado: "DUPLICADO"; duplicados: CvDuplicado[] };
 
 function limpiarNombre(nombre: string) {
@@ -122,7 +122,7 @@ export async function subirCv(
       );
       return creado;
     });
-    return { estado: "GUARDADO", id: cv.id, sinTexto };
+    return { estado: "GUARDADO", id: cv.id, sinTexto, sinAnalisisIA };
   } catch (error) {
     await eliminarArchivo(archivoId);
     throw error;
