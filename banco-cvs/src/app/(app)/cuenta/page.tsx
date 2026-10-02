@@ -22,6 +22,9 @@ export default async function PaginaCuenta() {
         <h2 className="text-lg font-bold text-slate-900">Cambiar contraseña</h2>
         <FormularioContrasena textoBoton="Cambiar contraseña" />
       </section>
+      <p className="text-sm text-slate-700">
+        Por seguridad, «Cerrar sesión» cierra tu sesión en todos tus dispositivos, y cambiar la contraseña cierra las sesiones abiertas en tus otros dispositivos.
+      </p>
     </div>
   );
 }

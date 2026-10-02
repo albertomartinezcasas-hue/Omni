@@ -22,6 +22,7 @@ export type FilaUsuario = {
   activo: boolean;
   debeCambiarContrasena: boolean;
   bloqueado: boolean;
+  alta: string;
 };
 
 export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[]; actualId: string }) {
@@ -86,6 +87,7 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
               <th scope="col" className={celdaEncabezado}>Correo</th>
               <th scope="col" className={celdaEncabezado}>Rol</th>
               <th scope="col" className={celdaEncabezado}>Estado</th>
+              <th scope="col" className={celdaEncabezado}>Alta</th>
               <th scope="col" className={celdaEncabezado}>Acciones</th>
             </tr>
           </thead>
@@ -107,6 +109,7 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
                     <span className="block text-xs text-red-800">Bloqueado temporalmente</span>
                   )}
                 </td>
+                <td className={`${celda} text-xs text-slate-700`}>{u.alta}</td>
                 <td className={celda}>
                   <AccionesUsuario usuario={u} alRestablecer={setTemporal} />
                 </td>

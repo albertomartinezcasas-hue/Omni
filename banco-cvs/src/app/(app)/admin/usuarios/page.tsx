@@ -1,4 +1,5 @@
 import { titulo } from "@/components/estilos";
+import { formatearFecha } from "@/components/Fecha";
 import { GestionUsuarios } from "@/components/GestionUsuarios";
 import type { Rol } from "@/lib/catalogos";
 import { consultarUsuarios } from "@/lib/consultas";
@@ -23,6 +24,7 @@ export default async function PaginaUsuarios() {
           activo: u.activo,
           debeCambiarContrasena: u.debeCambiarContrasena,
           bloqueado: !!u.bloqueadoHasta && u.bloqueadoHasta > ahora,
+          alta: `${formatearFecha(u.creadoEn)} · ${u.creadoPor?.nombre ?? "crear-admin"}`,
         }))}
       />
     </div>

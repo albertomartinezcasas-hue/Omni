@@ -22,12 +22,15 @@ export function Encabezado({ usuario }: { usuario: UsuarioActual }) {
               Repositorio
             </Link>
             <Link href="/cvs/subir" className={enlace}>
-              Subir CVs
+              Subir y analizar
             </Link>
             {esAdmin && (
               <>
                 <Link href="/admin/usuarios" className={enlace}>
                   Usuarios
+                </Link>
+                <Link href="/admin/umbrales" className={enlace}>
+                  Umbrales
                 </Link>
                 <Link href="/admin/bitacora" className={enlace}>
                   Bitácora

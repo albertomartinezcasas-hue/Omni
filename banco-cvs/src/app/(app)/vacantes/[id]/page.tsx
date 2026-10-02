@@ -11,7 +11,8 @@ import {
   type Modalidad,
   type NivelEstudio,
 } from "@/lib/catalogos";
-import { consultarVacante } from "@/lib/consultas";
+import { consultarCandidatos, consultarVacante } from "@/lib/consultas";
+import { TablaCandidatos } from "@/components/TablaCandidatos";
 import { protegerPagina } from "@/lib/paginas";
 
 export const metadata = { title: "Vacante · Banco de CVs" };
@@ -22,6 +23,7 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
   const vacante = await consultarVacante(id);
   if (!vacante) notFound();
   const archivada = vacante.estado === "ARCHIVADA";
+  const { grupos, total } = await consultarCandidatos(vacante.id, vacante.version);
   const esAdmin = usuario.rol === "ADMIN";
 
   return (
@@ -54,9 +56,22 @@ export default async function PaginaVacante({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      <section className={`${tarjeta} text-center text-sm text-slate-700`} aria-labelledby="candidatos">
-        <h2 id="candidatos" className="mb-2 text-lg font-bold text-slate-900">Candidatos</h2>
-        Aún no hay CVs analizados para esta vacante.
+      <section className="space-y-4" aria-labelledby="candidatos">
+        <h2 id="candidatos" className="text-lg font-bold text-slate-900">
+          Candidatos {total > 0 && <span className="font-normal text-slate-700">({total}, ordenados por puntaje)</span>}
+        </h2>
+        {total === 0 ? (
+          <div className={`${tarjeta} space-y-3 text-center text-sm text-slate-700`}>
+            <p>Aún no hay CVs analizados para esta vacante.</p>
+            {!archivada && (
+              <Link href={`/cvs/subir?vacante=${vacante.id}`} className={boton.primario}>
+                Subir y analizar CVs
+              </Link>
+            )}
+          </div>
+        ) : (
+          <TablaCandidatos grupos={grupos} vacanteId={vacante.id} soloLectura={archivada} />
+        )}
       </section>
 
       <section className={`${tarjeta} space-y-4`} aria-labelledby="perfil">

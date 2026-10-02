@@ -136,6 +136,7 @@ export function listarUsuarios() {
       debeCambiarContrasena: true,
       bloqueadoHasta: true,
       creadoEn: true,
+      creadoPor: { select: { nombre: true } },
     },
   });
 }

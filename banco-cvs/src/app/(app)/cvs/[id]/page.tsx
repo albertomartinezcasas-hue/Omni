@@ -5,7 +5,11 @@ import { boton, tarjeta, titulo } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { FormularioNombreCandidato } from "@/components/FormularioNombreCandidato";
 import { ESTADO_SIN_TEXTO, ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
-import { consultarCv } from "@/lib/consultas";
+import { AnalizarContraVacante } from "@/components/AnalizarContraVacante";
+import { BadgeCategoria, BadgeDesactualizado } from "@/components/BadgeCategoria";
+import { celda, celdaEncabezado, tabla } from "@/components/estilos";
+import Link from "next/link";
+import { consultarAnalisisDeCv, consultarCv, consultarVacantes } from "@/lib/consultas";
 import { protegerPagina } from "@/lib/paginas";
 
 export const metadata = { title: "CV · Banco de CVs" };
@@ -15,6 +19,7 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const cv = await consultarCv(id);
   if (!cv) notFound();
+  const [analisis, activas] = await Promise.all([consultarAnalisisDeCv(cv.id), consultarVacantes("ACTIVA")]);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -44,6 +49,44 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
         <dt className="font-semibold text-slate-700">Subido por</dt>
         <dd>{cv.subidoPor.nombre} · {formatearFecha(cv.creadoEn)}</dd>
       </dl>
+      <section className={`${tarjeta} space-y-4`} aria-labelledby="analisis-cv">
+        <h2 id="analisis-cv" className="text-lg font-bold text-slate-900">Análisis</h2>
+        {cv.estado !== ESTADO_SIN_TEXTO && (
+          <AnalizarContraVacante cvId={cv.id} vacantes={activas.map((v) => ({ id: v.id, titulo: v.titulo }))} />
+        )}
+        {analisis.length === 0 ? (
+          <p className="text-sm text-slate-700">Este CV aún no se ha analizado contra ninguna vacante.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className={tabla}>
+              <thead>
+                <tr>
+                  <th scope="col" className={celdaEncabezado}>Vacante</th>
+                  <th scope="col" className={celdaEncabezado}>Categoría</th>
+                  <th scope="col" className={`${celdaEncabezado} text-right`}>Puntaje</th>
+                  <th scope="col" className={celdaEncabezado}>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analisis.map((a) => (
+                  <tr key={a.id}>
+                    <td className={celda}>
+                      <Link href={`/analisis/${a.id}`} className="font-semibold text-blue-700 hover:underline">{a.vacante.titulo}</Link>
+                      {a.vacante.estado === "ARCHIVADA" && <span className="block text-xs text-slate-600">Vacante archivada</span>}
+                    </td>
+                    <td className={celda}>
+                      <BadgeCategoria categoria={a.categoria.final} causa={a.categoria.ajustadaPor ? null : a.categoria.causaNoViable} />
+                      {a.desactualizado && <span className="ml-2"><BadgeDesactualizado /></span>}
+                    </td>
+                    <td className={`${celda} text-right font-bold`}>{a.puntaje}</td>
+                    <td className={`${celda} whitespace-nowrap`}>{formatearFecha(a.creadoEn)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
