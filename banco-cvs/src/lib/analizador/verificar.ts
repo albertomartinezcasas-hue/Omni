@@ -1,7 +1,7 @@
 // Paso 3 — Verificación (código): toda cita debe existir literalmente en el texto del CV.
 import { ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, NIVELES_ESTUDIO, NIVELES_IDIOMA } from "@/lib/catalogos";
 import { coincidenciasProtegidas, enmascararProtegidos } from "./atributosProtegidos";
-import { aniosDePeriodo, aniosSinTraslapes, fechaCdmx, formatoMes, periodoDeCita } from "./fechas";
+import { aniosDePeriodo, aniosSinTraslapes, describirMeses, fechaCdmx, formatoMes, mesesSinTraslapes, periodoDeCita } from "./fechas";
 import { ocultarDatosPersonales } from "./ocultar";
 import type { Extraccion, ResultadoVerificado, VacanteEvaluada } from "./tipos";
 
@@ -40,6 +40,15 @@ function textoLibreSeguro(texto: string) {
   // Si al ocultar apareció un dato protegido (p. ej. estado civil suelto), se descarta completo.
   if (!limpio || limpio.includes("[DATO PERSONAL OMITIDO]") || coincidenciasProtegidas(limpio).length) return null;
   return limpio;
+}
+
+/** Palabras significativas (4+ letras, sin acentos) para comparar textos. */
+function palabrasClave(texto: string) {
+  return normalizarParaCita(texto)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .split(/[^a-z0-9]+/)
+    .filter((p) => p.length >= 4);
 }
 
 /** Cita que se guarda: literal del CV, con cualquier mención protegida enmascarada. */
@@ -87,6 +96,7 @@ export function verificarExtraccion(
     return [{ ...p, periodo }];
   });
   const anios = aniosSinTraslapes(puestos.map((p) => p.periodo));
+  const meses = mesesSinTraslapes(puestos.map((p) => p.periodo));
 
   // Estudios e idiomas.
   const estudiosVerificados = extraccion.estudios.nivel !== "NO_ESPECIFICADO" && existe(extraccion.estudios.cita);
@@ -122,7 +132,7 @@ export function verificarExtraccion(
       .map((q) => `${q.tipo === "OBLIGATORIO" ? "Obligatorio" : "Deseable"} sin evidencia: ${q.texto}${q.citaNoVerificada ? " (la cita del análisis no coincide con el CV; revisar)" : ""}`),
     ...requisitos.filter((q) => q.nivel === 1).map((q) => `Solo se menciona, sin detalle: ${q.texto}`),
     ...(anios < vacante.aniosMinimos
-      ? [`Experiencia relevante comprobable: ${anios} de ${vacante.aniosMinimos} ${vacante.aniosMinimos === 1 ? "año" : "años"} requeridos`]
+      ? [`Experiencia relevante comprobable: ${describirMeses(meses)} de ${vacante.aniosMinimos} ${vacante.aniosMinimos === 1 ? "año requerido" : "años requeridos"}`]
       : []),
     ...(vacante.nivelEstudiosMinimo !== "NINGUNO" &&
     (estudios.encontrado === "NO_ESPECIFICADO" ||
@@ -133,7 +143,15 @@ export function verificarExtraccion(
       .filter((i) => i.encontrado === "NO_ESPECIFICADO" || NIVELES_IDIOMA.indexOf(i.encontrado) < NIVELES_IDIOMA.indexOf(i.requerido))
       .map((i) => `${i.idioma}: se requiere nivel ${ETIQUETA_IDIOMA[i.requerido]}`),
   ];
-  const brechasIa = extraccion.brechas.map(textoLibreSeguro).filter((t): t is string => !!t);
+  // Se omiten las brechas de la IA que repiten con otras palabras un requisito que ya tiene brecha base.
+  const conBrecha = requisitos.filter((q) => q.nivel < 2).map((q) => palabrasClave(q.texto));
+  const brechasIa = extraccion.brechas
+    .map(textoLibreSeguro)
+    .filter((t): t is string => !!t)
+    .filter((t) => {
+      const palabras = new Set(palabrasClave(t));
+      return !conBrecha.some((clave) => clave.length > 0 && clave.every((c) => palabras.has(c)));
+    });
 
   const nombreVerificado =
     extraccion.nombreCandidato.valor &&
@@ -146,6 +164,7 @@ export function verificarExtraccion(
     requisitos,
     experiencia: {
       anios,
+      meses,
       minimo: vacante.aniosMinimos,
       puestos: puestos.map((p) => ({
         puesto: p.puesto,

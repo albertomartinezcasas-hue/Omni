@@ -127,7 +127,7 @@ describe("Verificación endurecida", () => {
       FECHA,
     );
     expect(r.brechas[0]).toBe("Obligatorio sin evidencia: SQL (la cita del análisis no coincide con el CV; revisar)");
-    expect(r.brechas).toContain("Experiencia relevante comprobable: 0 de 1 año requeridos");
+    expect(r.brechas).toContain("Experiencia relevante comprobable: 0 meses de 1 año requerido");
     expect(r.brechas.at(-1)).toBe("Sin experiencia en Python");
     expect(r.estudios).toMatchObject({ encontrado: "LICENCIATURA", estatus: "EN_CURSO" });
   });

@@ -14,7 +14,9 @@ export const campo =
 export const etiqueta = "block text-sm font-semibold text-slate-800";
 export const ayuda = "mt-1 text-xs text-slate-600";
 export const tarjeta = "rounded-lg border border-slate-200 bg-white p-6 shadow-sm";
+/** Tarjeta que contiene una tabla: sin relleno propio (el título y la tabla lo traen). */
+export const tarjetaTabla = "overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm";
 export const titulo = "text-2xl font-bold text-slate-900";
 export const tabla = "w-full border-collapse text-left text-sm";
-export const celdaEncabezado = "border-b border-slate-300 px-3 py-2 font-semibold text-slate-700";
-export const celda = "border-b border-slate-200 px-3 py-2 align-top";
+export const celdaEncabezado = "border-b border-slate-300 px-4 py-2 font-semibold text-slate-700";
+export const celda = "border-b border-slate-200 px-4 py-2 align-top";

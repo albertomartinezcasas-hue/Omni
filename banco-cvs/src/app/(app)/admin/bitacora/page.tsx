@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, titulo } from "@/components/estilos";
+import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, titulo, tarjetaTabla } from "@/components/estilos";
+import { DetalleBitacora } from "@/components/DetalleBitacora";
 import { formatearFecha } from "@/components/Fecha";
 import { ETIQUETA_ACCION, type Accion } from "@/lib/bitacora";
 import { consultarActores, consultarBitacora } from "@/lib/consultas";
@@ -48,11 +49,12 @@ export default async function PaginaBitacora({ searchParams }: { searchParams: P
         </div>
         <div>
           <label htmlFor="desde" className={etiqueta}>Desde</label>
-          <input id="desde" name="desde" type="date" defaultValue={f.desde ?? ""} className={campo} />
+          <input id="desde" name="desde" type="date" defaultValue={f.desde ?? ""} aria-describedby="formato-fecha" className={campo} />
         </div>
         <div>
           <label htmlFor="hasta" className={etiqueta}>Hasta</label>
-          <input id="hasta" name="hasta" type="date" defaultValue={f.hasta ?? ""} className={campo} />
+          <input id="hasta" name="hasta" type="date" defaultValue={f.hasta ?? ""} aria-describedby="formato-fecha" className={campo} />
+          <p id="formato-fecha" className="mt-1 text-xs text-slate-600">Fechas día/mes/año (hora de CDMX).</p>
         </div>
         <div className="flex items-end gap-3">
           <button type="submit" className={boton.primario}>Filtrar</button>
@@ -63,7 +65,7 @@ export default async function PaginaBitacora({ searchParams }: { searchParams: P
       {eventos.length === 0 ? (
         <div className={`${tarjeta} text-center text-sm text-slate-700`}>{hayFiltros ? "Ningún evento cumple los filtros." : "Aún no hay eventos."}</div>
       ) : (
-        <div className={`${tarjeta} overflow-x-auto p-0`}>
+        <div className={`${tarjetaTabla}`}>
           <table className={tabla}>
             <thead>
               <tr>
@@ -96,7 +98,7 @@ export default async function PaginaBitacora({ searchParams }: { searchParams: P
                         "—"
                       )}
                     </td>
-                    <td className={`${celda} max-w-md break-words font-mono text-xs`}>{e.detalle ?? "—"}</td>
+                    <td className={`${celda} max-w-md`}><DetalleBitacora detalle={e.detalle} /></td>
                   </tr>
                 );
               })}

@@ -12,6 +12,7 @@ export function FormularioUmbrales({ actuales }: { actuales: Umbrales }) {
   const formulario = useRef<HTMLFormElement>(null);
   const dialogo = useRef<HTMLDialogElement>(null);
   const [mensaje, setMensaje] = useState<{ tipo: "error" | "exito"; texto: string } | null>(null);
+  const [cambios, setCambios] = useState<string[]>([]);
   const [pendiente, iniciar] = useTransition();
 
   function guardar() {
@@ -29,6 +30,25 @@ export function FormularioUmbrales({ actuales }: { actuales: Umbrales }) {
       onSubmit={(e) => {
         e.preventDefault();
         setMensaje(null);
+        // Validación antes de confirmar (el servidor vuelve a validar).
+        const d = new FormData(e.currentTarget);
+        const n = { excelente: Number(d.get("excelente")), bueno: Number(d.get("bueno")), pasable: Number(d.get("pasable")) };
+        if (!Object.values(n).every((v) => Number.isInteger(v) && v >= 1 && v <= 100)) {
+          setMensaje({ tipo: "error", texto: "Los umbrales deben ser números enteros entre 1 y 100." });
+          return;
+        }
+        if (!(n.excelente > n.bueno && n.bueno > n.pasable)) {
+          setMensaje({ tipo: "error", texto: "Los umbrales deben cumplir Excelente > Bueno > Pasable." });
+          return;
+        }
+        const lista = (["excelente", "bueno", "pasable"] as const)
+          .filter((k) => n[k] !== actuales[k])
+          .map((k) => `${k === "excelente" ? "Excelente" : k === "bueno" ? "Bueno" : "Pasable"}: ${actuales[k]} → ${n[k]}`);
+        if (lista.length === 0) {
+          setMensaje({ tipo: "error", texto: "No hay cambios que guardar." });
+          return;
+        }
+        setCambios(lista);
         dialogo.current?.showModal();
       }}
       className="space-y-4"
@@ -58,6 +78,9 @@ export function FormularioUmbrales({ actuales }: { actuales: Umbrales }) {
       <dialog ref={dialogo} aria-labelledby="titulo-umbrales" className="m-auto w-full max-w-md rounded-lg p-0 shadow-xl">
         <div className="space-y-4 p-6">
           <h2 id="titulo-umbrales" className="text-lg font-bold text-slate-900">¿Guardar los nuevos umbrales?</h2>
+          <ul className="list-disc pl-5 text-sm font-semibold text-slate-900">
+            {cambios.map((c) => <li key={c}>{c}</li>)}
+          </ul>
           <p className="text-sm text-slate-700">
             Las categorías de todos los análisis se recalcularán con los nuevos umbrales (los puntajes no cambian y los
             ajustes manuales se conservan). El cambio queda en la bitácora.
@@ -67,7 +90,7 @@ export function FormularioUmbrales({ actuales }: { actuales: Umbrales }) {
               Cancelar
             </button>
             <button type="button" className={boton.primario} onClick={guardar} disabled={pendiente}>
-              {pendiente ? "Guardando…" : "Guardar"}
+              {pendiente ? "Guardando…" : "Guardar umbrales"}
             </button>
           </div>
         </div>

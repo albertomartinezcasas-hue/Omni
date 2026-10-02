@@ -1,5 +1,6 @@
 // Paso 4 — Veredicto y puntaje (código). Fórmulas exactas del documento de requerimientos.
 import { NIVELES_ESTUDIO, NIVELES_IDIOMA, type NivelEstudio, type NivelIdioma } from "@/lib/catalogos";
+import { describirMeses } from "./fechas";
 import type { ResultadoVerificado } from "./tipos";
 
 export const VALOR_NIVEL = { 0: 0, 1: 60, 2: 100 } as const;
@@ -68,7 +69,7 @@ export function calificar(r: ResultadoVerificado): Calificacion {
     );
   if (r.experiencia.anios < r.experiencia.minimo) {
     const notas = [
-      `se encontraron ${r.experiencia.anios}`,
+      `se verificaron ${describirMeses(r.experiencia.meses ?? Math.round(r.experiencia.anios * 12))}`,
       ...(r.experiencia.puestosDescartados > 0
         ? [`${r.experiencia.puestosDescartados} ${r.experiencia.puestosDescartados === 1 ? "puesto descartado" : "puestos descartados"} por falta de fechas o cita verificable; revisar el CV`]
         : []),

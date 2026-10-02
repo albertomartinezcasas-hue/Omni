@@ -72,8 +72,8 @@ export function periodoDeCita(cita: string, fechaAnalisis: Date): Periodo | null
   return { inicio, fin, sinMes };
 }
 
-/** Años totales de una lista de periodos, sin contar dos veces los traslapes. */
-export function aniosSinTraslapes(periodos: Periodo[]) {
+/** Meses totales de una lista de periodos, sin contar dos veces los traslapes. */
+export function mesesSinTraslapes(periodos: Periodo[]) {
   const ordenados = [...periodos].sort((a, b) => a.inicio - b.inicio);
   let meses = 0;
   let actual: Periodo | null = null;
@@ -86,7 +86,24 @@ export function aniosSinTraslapes(periodos: Periodo[]) {
     }
   }
   if (actual) meses += actual.fin - actual.inicio + 1;
-  return Math.round((meses / 12) * 10) / 10;
+  return meses;
+}
+
+/** Años totales (un decimal), sin traslapes. Con mínimos enteros el redondeo nunca cruza el corte. */
+export function aniosSinTraslapes(periodos: Periodo[]) {
+  return Math.round((mesesSinTraslapes(periodos) / 12) * 10) / 10;
+}
+
+/** "9 meses", "1 año 3 meses", "4.5 años". */
+export function describirMeses(meses: number) {
+  if (meses >= 24) return `${Math.round((meses / 12) * 10) / 10} años`;
+  const anios = Math.floor(meses / 12);
+  const resto = meses % 12;
+  const partes = [
+    ...(anios ? [`${anios} ${anios === 1 ? "año" : "años"}`] : []),
+    ...(resto || !anios ? [`${resto} ${resto === 1 ? "mes" : "meses"}`] : []),
+  ];
+  return partes.join(" ");
 }
 
 export const aniosDePeriodo = (p: Periodo) => Math.round(((p.fin - p.inicio + 1) / 12) * 10) / 10;

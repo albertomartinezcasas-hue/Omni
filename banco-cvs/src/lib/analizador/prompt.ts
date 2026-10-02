@@ -17,7 +17,7 @@ Reglas de evidencia:
 - Idiomas: solo los idiomas que pide la vacante, escritos igual que en la vacante, con nivel BASICO, INTERMEDIO, AVANZADO o NATIVO y cita; si el CV no indica el nivel, NO_ESPECIFICADO con cita null. Equivalencias: A1-A2 = BASICO; B1-B2 o "conversacional" = INTERMEDIO; C1 = AVANZADO; C2 o lengua materna = NATIVO. Para exámenes (TOEFL, IELTS, etc.) usa su equivalencia MCER.
 - Cualidades: de 3 a 5 cualidades principales del candidato para esta vacante, cada una ligada a un requisito o a un logro concreto y medible, con su cita. Evita rasgos de personalidad genéricos ("proactivo", "trabajo en equipo") sin un hecho que los respalde.
 - Brechas: lo que la vacante pide y el CV no demuestra (frases cortas).
-- Preguntas: de 2 a 3 preguntas de entrevista técnicas o conductuales, concretas, ligadas a una brecha o a un requisito solo mencionado (ej. "Describe una consulta SQL con JOIN y agregaciones que hayas usado para un reporte").
+- Preguntas: de 2 a 3 preguntas de entrevista ABIERTAS (técnicas, situacionales o de comportamiento), concretas, ligadas a una brecha o a un requisito solo mencionado. Evita preguntas de sí/no. Ejemplos: "Describe una consulta SQL con JOIN y agregaciones que hayas usado para un reporte y qué resolvía"; "Haz un resumen de 2 minutos en inglés de tu último proyecto".
 - Nombre del candidato: el nombre completo tal como aparece en el CV y la cita del renglón donde aparece, o null.
 - Escribe en español de México, de forma breve y concreta.`;
 

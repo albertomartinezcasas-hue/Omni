@@ -12,7 +12,7 @@ import { ETIQUETA_ROL, ROLES, type Rol } from "@/lib/catalogos";
 import { Aviso } from "./Aviso";
 import { ContrasenaTemporal } from "./ContrasenaTemporal";
 import { DialogoConfirmacion } from "./DialogoConfirmacion";
-import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta } from "./estilos";
+import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, tarjetaTabla } from "./estilos";
 
 export type FilaUsuario = {
   id: string;
@@ -78,7 +78,7 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
         </form>
       </section>
 
-      <section className={`${tarjeta} overflow-x-auto p-0`} aria-labelledby="lista">
+      <section className={`${tarjetaTabla}`} aria-labelledby="lista">
         <h2 id="lista" className="px-6 pt-6 text-lg font-bold text-slate-900">Cuentas</h2>
         <table className={`${tabla} mt-4`}>
           <thead>
@@ -98,7 +98,7 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
                   {u.nombre}
                   {u.id === actualId && <span className="ml-1 text-xs text-slate-600">(tú)</span>}
                 </td>
-                <td className={celda}>{u.correo}</td>
+                <td className={`${celda} break-all`}>{u.correo}</td>
                 <td className={celda}>{ETIQUETA_ROL[u.rol]}</td>
                 <td className={celda}>
                   {u.activo ? "Activo" : "Desactivado"}
@@ -111,7 +111,13 @@ export function GestionUsuarios({ usuarios, actualId }: { usuarios: FilaUsuario[
                 </td>
                 <td className={`${celda} text-xs text-slate-700`}>{u.alta}</td>
                 <td className={celda}>
-                  <AccionesUsuario usuario={u} alRestablecer={setTemporal} />
+                  {u.id === actualId ? (
+                    <span className="text-xs text-slate-700">
+                      Tu cuenta: cambia tu contraseña en «Mi cuenta». Para cambiar tu rol o desactivarte, pide a otro Admin.
+                    </span>
+                  ) : (
+                    <AccionesUsuario usuario={u} alRestablecer={setTemporal} />
+                  )}
                 </td>
               </tr>
             ))}

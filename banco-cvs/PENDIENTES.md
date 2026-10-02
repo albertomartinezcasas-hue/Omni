@@ -111,3 +111,34 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
 - [Baja] (seguridad) "Tengo 32 años." no se ocultaba. — **Corregido** en el ocultamiento previo a la API.
 - [Baja] (seguridad) Riesgo aceptado: los teléfonos locales de 8 dígitos no se ocultan (se parecen a rangos de años) y llegan a la API.
 - [Baja] (seguridad) Los niveles y la relevancia siguen siendo un juicio de la IA, limitado por la verificación de citas. — Pendiente (Fase 3): mostrar la cita junto a cada requisito para que una persona la revise.
+
+## Fase 3
+
+### experto-reclutamiento (APROBADO CON AJUSTES, sin hallazgos Alta)
+- [Media] Para comparar había que abrir cada análisis. — **Corregido**: columna "Evidencia clave" con obligatorios demostrados/mencionados/sin evidencia, experiencia, estudios con estatus e idiomas, y pesos de O·D·E·F explicados.
+- [Media] El ajuste no guardaba contra qué se decidió. — **Corregido**: la bitácora guarda la categoría anterior y la calculada, el puntaje y los umbrales vigentes, y lo muestra como "Pasable → Bueno".
+- [Media] El motivo de experiencia parecía decir "sin experiencia" y redondeaba 0.75 a 0.8. — **Corregido**: "(se verificaron 9 meses)", con meses cuando hay menos de 2 años. Se conserva el prefijo "No se encontró evidencia de:" que exige el documento.
+- [Baja] Vista imprimible. — **Hecho**: botón "Imprimir / guardar PDF" y estilos `print:` que ocultan la navegación, el ajuste y los botones.
+- [Baja] Brechas de la IA duplicadas. — **Corregido**: se omiten las que repiten un requisito con brecha base.
+- [Baja] "Re-analizar" en CVs sin texto. — **Corregido**: se oculta y el servidor ya lo rechazaba. La siembra de la prueba en navegador generaba CVs cortos marcados como sin texto: ajustada.
+- [Baja] Preguntas cerradas. — **Corregido** en el prompt (preguntas abiertas o situacionales con ejemplos).
+- [Baja] Comentario del ajuste en la tabla. — **Hecho** (recortado a 80 caracteres, con el texto completo en `title`).
+
+### ux-ui-reviewer (APROBADO CON AJUSTES, sin hallazgos Alta)
+- [Media] "Reintentar" usaba la vacante del lote. — **Corregido**: la vacante queda fija por archivo y se muestra en la fila.
+- [Media] Se perdía la cola al cerrar la página. — **Corregido**: aviso `beforeunload` y mensaje "No cierres esta página…".
+- [Media] El resumen no contaba los errores. — **Corregido**: "Terminado: N listos, M con error…" con `aria-live`.
+- [Media] Los umbrales se validaban después de confirmar. — **Corregido**: validación en el cliente y diálogo con "Bueno: 70 → 60".
+- [Media] La bitácora mostraba JSON crudo. — **Corregido**: pares etiqueta–valor y el JSON original en un desplegable.
+- [Baja] El nombre de la variable de entorno aparecía en el error. — **Corregido** (mensaje genérico; el detalle va al log del servidor).
+- [Baja] "Sin texto" aparecía como "Listo" en verde. — **Corregido**: estado ámbar "Guardado sin analizar".
+- [Baja] El límite de 20 era por selección. — **Corregido**: no se pueden agregar archivos mientras la cola trabaja.
+- [Baja] Ayuda de 10 caracteres en el ajuste y limpieza tras guardar. — **Hecho.**
+- [Baja] El párrafo del ajuste empujaba el puntaje. — **Corregido.**
+- [Baja] Doble relleno en las tarjetas con tabla. — **Corregido** (`tarjetaTabla`).
+- [Baja] O·D·E·F sin explicar. — **Hecho** (`abbr` y leyenda).
+- [Baja] La navegación no marcaba la página actual. — **Hecho** (`aria-current` y estilo activo).
+- [Baja] "Re-analizar" sin confirmar cuando hay un ajuste. — **Hecho** (diálogo de confirmación).
+- [Baja] El correo se cortaba y aparecían acciones sobre la cuenta propia. — **Corregido** (`break-all` y acciones propias ocultas; el último Admin sigue protegido en el servidor).
+- [Baja] El formato de los campos de fecha depende del navegador. — **Mitigado** con ayuda "día/mes/año". El selector nativo sigue mostrando el formato del idioma del navegador.
+- Nota: la búsqueda por palabra clave no distingue mayúsculas solo en ASCII (SQLite `LIKE`): "José" no coincide con "jose". — Pendiente.

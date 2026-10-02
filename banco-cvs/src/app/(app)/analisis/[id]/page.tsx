@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { Aviso } from "@/components/Aviso";
 import { BadgeCategoria, BadgeDesactualizado } from "@/components/BadgeCategoria";
 import { BotonAnalizar } from "@/components/BotonAnalizar";
-import { boton, celda, celdaEncabezado, tabla, tarjeta } from "@/components/estilos";
+import { BotonImprimir } from "@/components/BotonImprimir";
+import { boton, celda, celdaEncabezado, tabla, tarjeta, tarjetaTabla } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { FormularioAjuste } from "@/components/FormularioAjuste";
+import { describirMeses } from "@/lib/analizador/fechas";
 import { ETIQUETA_TIPO_PUESTO } from "@/lib/analizador/tipos";
 import { ETIQUETA_CATEGORIA, ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, type Categoria, type NivelEstudio } from "@/lib/catalogos";
 import { consultarAnalisis } from "@/lib/consultas";
@@ -37,6 +39,10 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
 
   const r = a.resultado;
   const archivada = a.vacante.estado === "ARCHIVADA";
+  const puedeReanalizar = !archivada && a.cv.estado === "CON_TEXTO";
+  const avisoAjuste = a.categoria.ajustadaPor
+    ? `El ajuste manual de ${a.categoria.ajustadaPor} no se copiará al nuevo análisis (quedará visible como ajuste previo).`
+    : undefined;
   const candidato = a.cv.nombreCandidato ?? a.cv.nombreArchivo;
   const sinDeseables = a.puntajeD === null;
   const pesos = sinDeseables
@@ -45,7 +51,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
-      <nav aria-label="Ruta" className="text-sm text-slate-700">
+      <nav aria-label="Ruta" className="text-sm text-slate-700 print:hidden">
         <Link href={`/vacantes/${a.vacante.id}`} className="font-semibold text-blue-700 hover:underline">
           {a.vacante.titulo}
         </Link>{" "}
@@ -57,7 +63,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap items-center gap-3 rounded-md border border-orange-300 bg-orange-50 px-4 py-3 text-sm text-orange-900">
           <BadgeDesactualizado />
           <span>La vacante se editó después de este análisis (versión {a.vacanteVersion} → {a.vacante.version}).</span>
-          {!archivada && <BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" />}
+          {puedeReanalizar && <span className="print:hidden"><BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} /></span>}
         </div>
       )}
       {a.ajustesPrevios.length > 0 && (
@@ -81,13 +87,6 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
                 Veredicto: {a.veredicto === "VIABLE" ? "VIABLE" : "NO VIABLE"}
               </span>
             </div>
-            {a.categoria.ajustadaPor && a.categoria.ajuste && (
-              <p className="text-sm text-slate-800">
-                <span className="font-semibold">Ajustada por {a.categoria.ajustadaPor}</span> el{" "}
-                {formatearFecha(a.categoria.ajuste.creadoEn)}: «{a.categoria.ajuste.comentario}». Categoría calculada:{" "}
-                <BadgeCategoria categoria={a.categoria.calculada} causa={a.categoria.causaNoViable} />
-              </p>
-            )}
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-slate-700">Puntaje</p>
@@ -95,6 +94,14 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
             <p className="text-xs text-slate-600">de 100</p>
           </div>
         </div>
+
+        {a.categoria.ajustadaPor && a.categoria.ajuste && (
+          <p className="text-sm text-slate-800">
+            <span className="font-semibold">Ajustada por {a.categoria.ajustadaPor}</span> el{" "}
+            {formatearFecha(a.categoria.ajuste.creadoEn)}: «{a.categoria.ajuste.comentario}». Categoría calculada:{" "}
+            <BadgeCategoria categoria={a.categoria.calculada} causa={a.categoria.causaNoViable} />
+          </p>
+        )}
 
         {a.motivos.length > 0 && (
           <div className="rounded-md border border-slate-300 bg-slate-50 p-4">
@@ -147,7 +154,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
             )}
           </section>
 
-          <section className={`${tarjeta} overflow-x-auto p-0`} aria-labelledby="requisitos">
+          <section className={`${tarjetaTabla}`} aria-labelledby="requisitos">
             <h2 id="requisitos" className="px-6 pt-6 text-lg font-bold text-slate-900">Evidencia por requisito</h2>
             <table className={`${tabla} mt-3`}>
               <thead>
@@ -204,7 +211,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
               </ul>
             )}
             <p className="text-xs text-slate-600">
-              Los años los calcula el sistema con las fechas citadas (meses de inicio y término incluidos, sin contar
+              Total verificable: {describirMeses(r.experiencia.meses ?? Math.round(r.experiencia.anios * 12))}. Los años los calcula el sistema con las fechas citadas (meses de inicio y término incluidos, sin contar
               traslapes); «actual» = {r.experiencia.fechaAnalisis}.
               {r.experiencia.puestosDescartados > 0 &&
                 ` ${r.experiencia.puestosDescartados} puesto(s) se descartaron por no tener fechas o cita verificable.`}
@@ -244,7 +251,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
             <ol className="list-decimal space-y-1 pl-5 text-sm">{r.preguntas.map((p) => <li key={p}>{p}</li>)}</ol>
           </section>
           {!archivada && (
-            <section className={`${tarjeta} space-y-3`} aria-labelledby="ajuste">
+            <section className={`${tarjeta} space-y-3 print:hidden`} aria-labelledby="ajuste">
               <h2 id="ajuste" className="text-lg font-bold text-slate-900">Cambiar categoría</h2>
               <FormularioAjuste analisisId={a.id} actual={a.categoria.final} />
             </section>
@@ -262,11 +269,12 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
               </ul>
             </section>
           )}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 print:hidden">
+            <BotonImprimir />
             <Link href={`/cvs/${a.cv.id}`} className={boton.secundario}>Ver CV</Link>
             <a href={`/api/cvs/${a.cv.id}/descargar`} className={boton.secundario}>Descargar CV</a>
-            {!archivada && !a.desactualizado && (
-              <BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" />
+            {puedeReanalizar && !a.desactualizado && (
+              <BotonAnalizar cvId={a.cv.id} vacanteId={a.vacante.id} texto="Re-analizar" aviso={avisoAjuste} />
             )}
           </div>
         </div>

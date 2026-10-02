@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Aviso } from "@/components/Aviso";
-import { boton, celda, celdaEncabezado, tabla, tarjeta, titulo } from "@/components/estilos";
+import { boton, celda, celdaEncabezado, tabla, tarjeta, titulo, tarjetaTabla } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { ETIQUETA_MODALIDAD, type Modalidad } from "@/lib/catalogos";
 import { consultarVacantes } from "@/lib/consultas";
@@ -49,7 +49,7 @@ export default async function PaginaVacantes({
               : "Aún no hay vacantes activas. Un Admin debe crearlas."}
         </div>
       ) : (
-        <div className={`${tarjeta} overflow-x-auto p-0`}>
+        <div className={`${tarjetaTabla}`}>
           <table className={tabla}>
             <thead>
               <tr>

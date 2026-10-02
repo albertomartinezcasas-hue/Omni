@@ -177,7 +177,7 @@ describe("Paso 3 — Verificación de citas", () => {
   it("no deja atributos protegidos ni datos de contacto en brechas y preguntas", () => {
     expect(r.brechas).toEqual([
       "Obligatorio sin evidencia: Excel avanzado (la cita del análisis no coincide con el CV; revisar)",
-      "No muestra Excel avanzado",
+      // "No muestra Excel avanzado" (IA) se omite: repite la brecha base del mismo requisito.
       "Confirmar al [TELÉFONO]",
     ]);
     expect(r.preguntas).toHaveLength(2);

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BadgeCategoria } from "@/components/BadgeCategoria";
-import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, titulo } from "@/components/estilos";
+import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, titulo, tarjetaTabla } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
 import { CATEGORIAS, ETIQUETA_CATEGORIA } from "@/lib/catalogos";
@@ -63,11 +63,12 @@ export default async function PaginaRepositorio({ searchParams }: { searchParams
         </div>
         <div>
           <label htmlFor="desde" className={etiqueta}>Cargado desde</label>
-          <input id="desde" name="desde" type="date" defaultValue={f.desde ?? ""} className={campo} />
+          <input id="desde" name="desde" type="date" defaultValue={f.desde ?? ""} aria-describedby="formato-fecha" className={campo} />
         </div>
         <div>
           <label htmlFor="hasta" className={etiqueta}>Cargado hasta</label>
-          <input id="hasta" name="hasta" type="date" defaultValue={f.hasta ?? ""} className={campo} />
+          <input id="hasta" name="hasta" type="date" defaultValue={f.hasta ?? ""} aria-describedby="formato-fecha" className={campo} />
+          <p id="formato-fecha" className="mt-1 text-xs text-slate-600">Día/mes/año.</p>
         </div>
         <div>
           <label htmlFor="subio" className={etiqueta}>Subido por</label>
@@ -93,7 +94,7 @@ export default async function PaginaRepositorio({ searchParams }: { searchParams
           {hayFiltros ? "Ningún CV coincide con la búsqueda. Prueba con otros filtros." : "Aún no hay CVs. Súbelos desde «Subir y analizar CVs»."}
         </div>
       ) : (
-        <div className={`${tarjeta} overflow-x-auto p-0`}>
+        <div className={`${tarjetaTabla}`}>
           <p className="px-6 pt-5 text-sm text-slate-700">{cvs.length} {cvs.length === 1 ? "resultado" : "resultados"}</p>
           <table className={`${tabla} mt-3`}>
             <thead>

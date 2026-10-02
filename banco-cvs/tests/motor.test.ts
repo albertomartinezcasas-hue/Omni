@@ -23,7 +23,7 @@ function resultado(parcial: {
         id: `D${i + 1}`, tipo: "DESEABLE" as const, texto: `Deseable ${i + 1}`, nivel, cita: nivel ? "cita" : null, citaNoVerificada: false,
       })),
     ],
-    experiencia: { anios: parcial.anios, minimo: parcial.minimo, puestos: [], puestosDescartados: 0, fechaAnalisis: "2026-10-02" },
+    experiencia: { anios: parcial.anios, meses: Math.round(parcial.anios * 12), minimo: parcial.minimo, puestos: [], puestosDescartados: 0, fechaAnalisis: "2026-10-02" },
     estudios: parcial.estudios ?? { requerido: "LICENCIATURA", encontrado: "LICENCIATURA", estatus: "TITULADO", cita: "Licenciatura" },
     idiomas: parcial.idiomas ?? [],
     cualidades: [],
@@ -122,7 +122,7 @@ describe("Veredicto NO VIABLE", () => {
     const c = calificar(resultado({ obligatorios: [2], anios: 1.5, minimo: 2 }));
     expect(c.veredicto).toBe("NO_VIABLE");
     expect(c.motivosNoViable).toEqual([
-      "No se encontró evidencia de: 2 años de experiencia relevante (se encontraron 1.5)",
+      "No se encontró evidencia de: 2 años de experiencia relevante (se verificaron 1 año 6 meses)",
     ]);
   });
 

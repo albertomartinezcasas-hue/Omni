@@ -83,6 +83,8 @@ export type ResultadoVerificado = {
   requisitos: RequisitoEvaluado[];
   experiencia: {
     anios: number;
+    /** Meses verificables sin traslapes (para mostrar con precisión). */
+    meses: number;
     minimo: number;
     puestos: {
       puesto: string;

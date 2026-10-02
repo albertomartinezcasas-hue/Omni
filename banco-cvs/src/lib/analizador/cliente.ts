@@ -13,7 +13,8 @@ let cliente: Anthropic | null = null;
 
 function obtenerCliente() {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new ErrorNegocio("El analizador no está configurado (falta ANTHROPIC_API_KEY). Avisa a un Admin.");
+    console.error("Analizador sin configurar: falta ANTHROPIC_API_KEY");
+    throw new ErrorNegocio("El análisis automático no está disponible por ahora. Avisa a un Admin.");
   }
   // Sin reintentos automáticos del SDK: el único reintento es el de JSON inválido.
   cliente ??= new Anthropic({ timeout: TIEMPO_MAXIMO_MS, maxRetries: 0 });

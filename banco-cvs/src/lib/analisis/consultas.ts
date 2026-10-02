@@ -17,6 +17,21 @@ function ajusteVigente(ajustes: { categoria: string; comentario: string; creadoE
   return a ? { categoria: a.categoria, comentario: a.comentario, autor: a.autor.nombre, creadoEn: a.creadoEn } : null;
 }
 
+function resumenClave(r: ResultadoVerificado): FilaCandidato["clave"] {
+  const obligatorios = (r.requisitos ?? []).filter((q) => q.tipo === "OBLIGATORIO");
+  return {
+    obligatorios: {
+      demostrados: obligatorios.filter((q) => q.nivel === 2).length,
+      mencionados: obligatorios.filter((q) => q.nivel === 1).length,
+      sin: obligatorios.filter((q) => q.nivel === 0).length,
+    },
+    meses: r.experiencia?.meses ?? Math.round((r.experiencia?.anios ?? 0) * 12),
+    minimo: r.experiencia?.minimo ?? 0,
+    idiomas: (r.idiomas ?? []).map((i) => ({ idioma: i.idioma, encontrado: i.encontrado })),
+    estudios: { encontrado: r.estudios?.encontrado ?? "NO_ESPECIFICADO", estatus: r.estudios?.estatus ?? "NO_ESPECIFICADO" },
+  };
+}
+
 export type FilaCandidato = {
   analisisId: string;
   cvId: string;
@@ -31,6 +46,14 @@ export type FilaCandidato = {
   creadoEn: Date;
   desactualizado: boolean;
   categoria: ReturnType<typeof categoriaMostrada>;
+  /** Resumen para comparar sin abrir cada análisis. */
+  clave: {
+    obligatorios: { demostrados: number; mencionados: number; sin: number };
+    meses: number;
+    minimo: number;
+    idiomas: { idioma: string; encontrado: string }[];
+    estudios: { encontrado: string; estatus: string };
+  };
 };
 
 /**
@@ -63,6 +86,7 @@ export async function candidatosDeVacante(vacanteId: string, versionActual: numb
       creadoEn: a.creadoEn,
       desactualizado: a.vacanteVersion !== versionActual,
       categoria: categoriaMostrada(a, umbrales, ajusteVigente(a.ajustes)),
+      clave: resumenClave(JSON.parse(a.resultado) as ResultadoVerificado),
     });
   }
   filas.sort((x, y) => y.puntaje - x.puntaje);
@@ -76,7 +100,7 @@ export async function detalleAnalisis(id: string) {
   const a = await db.analisis.findUnique({
     where: { id },
     include: {
-      cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true } },
+      cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true, estado: true } },
       vacante: { select: { id: true, titulo: true, version: true, estado: true } },
       creadoPor: { select: { nombre: true } },
       ajustes: { orderBy: { creadoEn: "desc" }, include: { autor: { select: { nombre: true } } } },
