@@ -38,6 +38,16 @@ function variable(env: Record<string, string | undefined>, nombre: string, sufij
   return valor?.trim() ? valor.trim() : undefined;
 }
 
+function urlSegura(baseURL: string) {
+  try {
+    const url = new URL(baseURL);
+    if (url.protocol === "https:") return true;
+    return url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Proveedores en orden de respaldo, solo los que tienen clave, URL y modelo. */
 export function proveedoresConfigurados(env: Record<string, string | undefined> = process.env): ProveedorIA[] {
   const nombres = (env.IA_PROVEEDORES?.trim() || ORDEN_POR_DEFECTO)
@@ -51,6 +61,11 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
     const baseURL = variable(env, nombre, "BASE_URL") ?? base.baseURL;
     const modelo = variable(env, nombre, "MODEL") ?? base.modelo;
     if (!apiKey || !baseURL || !modelo) continue; // sin clave (o incompleto): se salta
+    if (!urlSegura(baseURL)) {
+      // La clave viajaría sin cifrar: solo se acepta http:// hacia la propia máquina (p. ej. OmniRoute local).
+      console.error(`[analizador] ${nombre} se omite: ${nombre.toUpperCase()}_BASE_URL debe usar https://`);
+      continue;
+    }
     const anonimizarVar = variable(env, nombre, "ANONIMIZAR");
     const formatoVar = variable(env, nombre, "FORMATO_JSON");
     lista.push({
@@ -58,7 +73,8 @@ export function proveedoresConfigurados(env: Record<string, string | undefined> 
       baseURL,
       modelo,
       apiKey,
-      anonimizar: anonimizarVar ? anonimizarVar.toLowerCase() === "true" : (base.anonimizar ?? false),
+      // Un proveedor que anonimiza por defecto (Gemini) no se puede desactivar por configuración.
+      anonimizar: base.anonimizar === true || anonimizarVar?.toLowerCase() === "true",
       formato: formatoVar === "json_object" ? "json_object" : "json_schema",
     });
   }

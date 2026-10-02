@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
-import { anonimizar, ocultarDatosPersonales } from "./ocultar";
+import { anonimizarCv, ocultarDatosPersonales } from "./ocultar";
 import { mensajeUsuario, PROMPT_SISTEMA } from "./prompt";
 import { calificar } from "./puntaje";
 import { esquemaExtraccion, type Extraccion, type VacanteEvaluada } from "./tipos";
@@ -23,15 +23,20 @@ export async function extraerEvidencia(
   fechaAnalisis: Date = new Date(),
   nombresConocidos: (string | null | undefined)[] = [],
 ) {
-  const textoAnonimo = anonimizar(textoOculto, nombresConocidos);
-  const textoPara = (anonimo: boolean) => (anonimo ? textoAnonimo : textoOculto);
+  const anonimo = anonimizarCv(textoOculto, nombresConocidos);
+  // Sin nombre identificado no hay certeza de anonimizar: esos proveedores se omiten.
+  const textoAnonimo = anonimo.nombreEncontrado ? anonimo.texto : null;
+  const textoPara = (anonimizado: boolean) => (anonimizado ? textoAnonimo : textoOculto);
   const limite = Date.now() + TIEMPO_MAXIMO_MS;
   for (let intento = 1; intento <= 2; intento++) {
     const restante = limite - Date.now();
     if (restante < MIN_TIEMPO_REINTENTO_MS) throw new ErrorApiAnalizador("El análisis tardó más de 60 segundos.");
     const respuesta = await solicitarExtraccion(
       PROMPT_SISTEMA,
-      (anonimo) => mensajeUsuario(vacante, textoPara(anonimo), fechaAnalisis),
+      (anonimizado) => {
+        const texto = textoPara(anonimizado);
+        return texto === null ? null : mensajeUsuario(vacante, texto, fechaAnalisis);
+      },
       restante,
     );
     let datos: unknown;
@@ -47,7 +52,7 @@ export async function extraerEvidencia(
         modelo: respuesta.modelo,
         proveedor: respuesta.proveedor,
         anonimizado: respuesta.anonimizado,
-        textoVisto: textoPara(respuesta.anonimizado),
+        textoVisto: textoPara(respuesta.anonimizado) ?? textoOculto,
       };
     }
   }

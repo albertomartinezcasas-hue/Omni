@@ -76,12 +76,13 @@ async function llamar(p: ProveedorIA, sistema: string, usuario: string, tiempoMs
 
 /**
  * Pide la extracción a los proveedores en orden de respaldo. Ante 429, 5xx, tiempo agotado o sin conexión
- * pasa al siguiente. `prepararMensaje(anonimizar)` arma el mensaje con el texto adecuado para cada proveedor.
+ * pasa al siguiente. `prepararMensaje(anonimizar)` arma el mensaje con el texto adecuado para cada proveedor
+ * (o devuelve null si el CV no se pudo anonimizar: ese proveedor se omite).
  * El log registra qué proveedor respondió o falló, nunca el contenido del CV ni del prompt.
  */
 export async function solicitarExtraccion(
   sistema: string,
-  prepararMensaje: (anonimizar: boolean) => string,
+  prepararMensaje: (anonimizar: boolean) => string | null,
   tiempoMs: number = TIEMPO_MAXIMO_MS,
 ): Promise<RespuestaIA> {
   const proveedores = proveedoresConfigurados();
@@ -94,9 +95,15 @@ export async function solicitarExtraccion(
   for (const p of proveedores) {
     const restante = limite - Date.now();
     if (restante < 3_000) break;
+    const mensaje = prepararMensaje(p.anonimizar);
+    if (mensaje === null) {
+      // No se pudo anonimizar con certeza (no se identificó el nombre): el CV no se envía a este proveedor.
+      console.warn(`[analizador] ${p.nombre} se omite: el CV no se pudo anonimizar`);
+      continue;
+    }
     const inicio = Date.now();
     try {
-      const r = await llamar(p, sistema, prepararMensaje(p.anonimizar), restante);
+      const r = await llamar(p, sistema, mensaje, restante);
       console.info(`[analizador] Respondió ${p.nombre} (${r.modelo}) en ${Date.now() - inicio} ms`);
       return { ...r, proveedor: p.nombre, anonimizado: p.anonimizar };
     } catch (error) {

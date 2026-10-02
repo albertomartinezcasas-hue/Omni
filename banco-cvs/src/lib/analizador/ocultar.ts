@@ -56,32 +56,77 @@ export function ocultarDatosPersonales(texto: string): string {
     .replace(TELEFONO, (coincidencia) => (sonAnios(coincidencia) ? coincidencia : "[TELÉFONO]"));
 }
 
+// Domicilios sin palabra clave de calle: "Insurgentes Sur 1234, Del. Benito Juárez", "Paseo de la Reforma 222".
+// La alcaldía o municipio solo se quita tras calle y número: "Municipio de Zapopan" puede ser un empleador.
+const DIRECCION_VIALIDAD =
+  /\b(?:Paseo|Perif[eé]rico|Circuito|Retorno|Cerrada|Andador|Prolongaci[oó]n|Callej[oó]n)\s+[\p{L}. ]{1,40}?\s#?(?!(?:19|20)\d\d\b)\d{1,5}[A-Z]?\b/gu;
+const DIRECCION_CON_ALCALDIA =
+  /(?:[\p{Lu}][\p{L}.]*(?:[^\S\n]+[\p{L}.]+){0,5}[^\S\n]+#?(?!(?:19|20)\d\d\b)\d{1,5}[A-Z]?[^\S\n]*,[^\S\n]*)\b(?:Del\.|Delegaci[oó]n|Alcald[ií]a|Mun\.|Municipio)[^\S\n]+[\p{L}.]+(?:[^\S\n]+[\p{L}.]+){0,4}/gu;
+// Teléfonos locales de 8 dígitos solo cuando llevan etiqueta ("Tel. 5512-3456").
+const TELEFONO_ETIQUETADO =
+  /\b(?:tel(?:[eé]fono)?|cel(?:ular)?|m[oó]vil|whats(?:app)?)\.?\s*[:：]?\s*\+?\(?\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)/gi;
+
 const ENCABEZADOS = /^(curr[ií]cul[ou]m( vitae)?|cv|hoja de vida|resumen|perfil|experiencia|educaci[oó]n|formaci[oó]n|habilidades|idiomas|datos personales|contacto)$/i;
 const PARECE_NOMBRE = /^[\p{Lu}][\p{L}'’.-]+(?:\s+[\p{L}'’.-]+){1,4}$/u;
+const PARTICULAS = new Set(["de", "del", "la", "las", "los", "y", "san", "santa"]);
+// Palabras de puestos o secciones: un renglón con ellas no es un nombre ("Analista de Datos").
+const NO_NOMBRE =
+  /\b(?:analista|gerente|auxiliar|asistente|ingenier[oa]|ing\.|lic\.|licenciad[oa]|desarrollador[a]?|coordinador[a]?|jef[ea]|director[a]?|ejecutiv[oa]|contador[a]?|t[eé]cnic[oa]|especialista|consultor[a]?|supervisor[a]?|administrador[a]?|vendedor[a]?|programador[a]?|dise[nñ]ador[a]?|practicante|becari[oa]|encargad[oa]|operador[a]?|l[ií]der|responsable|objetivo|profesional|datos|ventas|sistemas|recursos|humanos|marketing|finanzas|log[ií]stica|empresa|universidad|instituto|escuela)\b/i;
+
+function pareceNombre(r: string) {
+  if (!PARECE_NOMBRE.test(r) || /\d|\[/.test(r) || ENCABEZADOS.test(r) || NO_NOMBRE.test(r) || r.length > 60) return false;
+  // Todas las palabras, salvo las partículas, empiezan con mayúscula.
+  return r.split(/\s+/).every((w) => PARTICULAS.has(w.toLowerCase()) || /^\p{Lu}/u.test(w));
+}
+
+function escapar(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /**
  * Anonimización adicional para proveedores que pueden usar los datos para entrenar (p. ej. el plan gratuito de Gemini):
- * además de lo que oculta `ocultarDatosPersonales`, quita el nombre del candidato.
- * Se aplica sobre texto ya ocultado.
+ * además de lo que oculta `ocultarDatosPersonales`, quita el nombre del candidato (completo y cada una de sus partes),
+ * domicilios sin palabra clave y teléfonos locales etiquetados. Se aplica sobre texto ya ocultado.
+ * `nombreEncontrado` es falso si no se identificó ningún nombre: entonces el CV no debe enviarse a ese proveedor.
  */
-export function anonimizar(texto: string, nombresConocidos: (string | null | undefined)[] = []) {
+export function anonimizarCv(texto: string, nombresConocidos: (string | null | undefined)[] = []) {
   const renglones = texto.split("\n");
-  // El nombre suele ser el primer renglón con texto: 2 a 5 palabras, sin dígitos ni marcas.
-  const primero = renglones.findIndex((r) => r.trim());
   const nombres = nombresConocidos.filter((n): n is string => !!n && n.trim().length >= 3).map((n) => n.trim());
-  if (primero >= 0) {
-    const r = renglones[primero].trim();
-    if (PARECE_NOMBRE.test(r) && !/\d|\[/.test(r) && !ENCABEZADOS.test(r) && r.length <= 60) {
+  // El nombre suele estar en los primeros renglones con texto, antes o después de un encabezado.
+  let revisados = 0;
+  for (let i = 0; i < renglones.length && revisados < 5; i++) {
+    const r = renglones[i].trim();
+    if (!r) continue;
+    revisados++;
+    if (pareceNombre(r)) {
       nombres.push(r);
-      renglones[primero] = "[NOMBRE]";
+      renglones[i] = "[NOMBRE]";
+      break;
     }
   }
-  let salida = renglones
-    .join("\n")
-    .replace(/^[^\S\n]*(?:nombre(?: completo)?|candidat[oa])[^\S\n]*[:：].*$/gim, "[NOMBRE]");
+  let salida = renglones.join("\n").replace(
+    /^([^\S\n]*(?:nombre(?: completo)?|candidat[oa])[^\S\n]*[:：][^\S\n]*)(.*)$/gim,
+    (_m, _etiqueta: string, valor: string) => {
+      if (valor.trim().length >= 3 && !valor.includes("[")) nombres.push(valor.trim());
+      return "[NOMBRE]";
+    },
+  );
+  // Nombre completo primero y después cada parte (≥ 3 letras, sin partículas) por separado.
+  const partes = new Set<string>();
   for (const nombre of nombres) {
-    const escapado = nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    salida = salida.replace(new RegExp(escapado, "giu"), "[NOMBRE]");
+    salida = salida.replace(new RegExp(escapar(nombre), "giu"), "[NOMBRE]");
+    for (const w of nombre.split(/\s+/)) if (w.length >= 3 && !PARTICULAS.has(w.toLowerCase())) partes.add(w);
   }
-  return salida;
+  for (const parte of partes) {
+    salida = salida.replace(new RegExp(`(?<![\\p{L}])${escapar(parte)}(?![\\p{L}])`, "giu"), "[NOMBRE]");
+  }
+  salida = salida
+    .replace(DIRECCION_VIALIDAD, "[DATO PERSONAL OMITIDO]")
+    .replace(DIRECCION_CON_ALCALDIA, "[DATO PERSONAL OMITIDO]")
+    .replace(TELEFONO_ETIQUETADO, "[TELÉFONO]");
+  return { texto: salida, nombreEncontrado: nombres.length > 0 };
+}
+
+export function anonimizar(texto: string, nombresConocidos: (string | null | undefined)[] = []) {
+  return anonimizarCv(texto, nombresConocidos).texto;
 }

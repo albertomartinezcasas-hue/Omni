@@ -196,3 +196,12 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - se agregó la sección Alertas.
   
   El prompt se adaptó para que la IA responda en JSON. El veredicto, el puntaje y la categoría siguen calculándose en código (regla crítica 1).
+
+#### revisor-seguridad sobre la capa de proveedores (ronda 1: APROBADO CON AJUSTES, 2 hallazgos Alta corregidos)
+
+- Corregido (Alta): el nombre se busca en los primeros 5 renglones, saltando encabezados y títulos de puesto. Se quitan el nombre completo y cada una de sus partes. Si no se identifica ningún nombre, el CV **no** se envía a los proveedores que exigen anonimizar.
+- Corregido (Alta): domicilios sin palabra clave ("Insurgentes Sur 1234, Del. …", "Paseo de la Reforma 222") y teléfonos de 8 dígitos con etiqueta.
+- Corregido (Media): la anonimización de Gemini ya no se puede desactivar por configuración.
+- Corregido (Baja): `*_BASE_URL` con `http://` solo se acepta hacia localhost.
+- **Baja**: falta `import "server-only"` en `proveedores.ts` y `cliente.ts`. Requiere instalar el paquete `server-only`, una dependencia nueva que se debe aprobar. Hoy ningún componente cliente importa el analizador.
+- **Baja**: si un apellido del candidato coincide con el nombre de una empresa o de un lugar ("García Hermanos"), esa palabra también se reemplaza por [NOMBRE] en el texto anonimizado. Esto puede hacer que se descarte la cita de ese puesto cuando responde un proveedor anonimizado.

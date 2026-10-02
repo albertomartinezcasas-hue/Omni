@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { anonimizar, ocultarDatosPersonales } from "@/lib/analizador/ocultar";
+import { anonimizar, anonimizarCv, ocultarDatosPersonales } from "@/lib/analizador/ocultar";
 import { proveedoresConfigurados } from "@/lib/analizador/proveedores";
 
 // SDK de OpenAI simulado: el comportamiento depende de la baseURL de cada proveedor.
@@ -80,6 +80,20 @@ describe("Configuración de proveedores (solo variables de entorno)", () => {
   });
 });
 
+describe("Configuración segura", () => {
+  it("la anonimización de Gemini no se puede desactivar", () => {
+    const [g] = proveedoresConfigurados({ IA_PROVEEDORES: "gemini", GEMINI_API_KEY: "k", GEMINI_ANONIMIZAR: "false" });
+    expect(g.anonimizar).toBe(true);
+  });
+
+  it("rechaza http:// salvo hacia la propia máquina", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const env = { IA_PROVEEDORES: "a,b", A_API_KEY: "k", A_BASE_URL: "http://ejemplo.com/v1", A_MODEL: "m",
+      B_API_KEY: "k", B_BASE_URL: "http://localhost:20128/v1", B_MODEL: "cvs" };
+    expect(proveedoresConfigurados(env).map((p) => p.nombre)).toEqual(["b"]);
+  });
+});
+
 describe("Respaldo entre proveedores", () => {
   it.each([
     ["429", status(429)],
@@ -99,6 +113,14 @@ describe("Respaldo entre proveedores", () => {
     expect(registrado).toContain("Respondió gemini");
     expect(registrado).not.toContain("Laura");
     expect(registrado).not.toContain("CV ANÓNIMO");
+  });
+
+  it("si el CV no se pudo anonimizar, no se envía al proveedor que lo exige", async () => {
+    comportamiento.set(GROQ, status(429));
+    comportamiento.set(GEMINI, ok("gemini-2.5-flash"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(solicitarExtraccion("s", (anon) => (anon ? null : "cv"))).rejects.toThrow();
+    expect(llamadas.map((l) => l.baseURL)).toEqual([GROQ]);
   });
 
   it("si un proveedor no tiene clave, se salta", async () => {
@@ -140,7 +162,7 @@ describe("Anonimización para proveedores que pueden entrenar con los datos", ()
       "Correo: laura@correo-ficticio.mx | Tel. 55 1234 5678",
       "Dirección: Calle Pino 12, Col. Roma, C.P. 06700",
       "RUT: 12.345.678-9 · DNI 30123456",
-      "Analista de Datos, Empresa Ficticia (2022 - 2024)",
+      "Analista de Datos, Empresa Demo (2022 - 2024)",
       "Referencias: disponibles. Laura Ficticia Pérez",
     ].join("\n");
     const resultado = anonimizar(ocultarDatosPersonales(cv), ["Laura Ficticia Pérez"]);
@@ -148,10 +170,35 @@ describe("Anonimización para proveedores que pueden entrenar con los datos", ()
       expect(resultado).not.toContain(dato);
     }
     expect(resultado).toContain("[NOMBRE]");
-    expect(resultado).toContain("Analista de Datos, Empresa Ficticia (2022 - 2024)");
+    expect(resultado).toContain("Analista de Datos, Empresa Demo (2022 - 2024)");
   });
 
   it("no confunde un encabezado con el nombre", () => {
     expect(anonimizar("Curriculum Vitae\nAnalista de datos")).toBe("Curriculum Vitae\nAnalista de datos");
+  });
+
+  it("encuentra el nombre después de un encabezado y quita cada una de sus partes", () => {
+    const cv = "CURRICULUM VITAE\nJuan Ficticio Ramírez\nAnalista de Datos\nReferencias: Juan y el Sr. Ramírez";
+    const r = anonimizarCv(cv);
+    expect(r.nombreEncontrado).toBe(true);
+    for (const dato of ["Juan", "Ficticio", "Ramírez"]) expect(r.texto).not.toContain(dato);
+    expect(r.texto).toContain("Analista de Datos");
+  });
+
+  it("un título de puesto no se toma como nombre y sin nombre se avisa", () => {
+    const r = anonimizarCv("Analista de Datos\nExperiencia en SQL");
+    expect(r.nombreEncontrado).toBe(false);
+    expect(r.texto).toContain("Analista de Datos");
+  });
+
+  it("quita domicilios sin palabra clave de calle y teléfonos locales etiquetados", () => {
+    const cv = "Ana Ficticia\nInsurgentes Sur 1234, Del. Benito Juárez\nPaseo de la Reforma 222\nTel. 5512-3456";
+    const r = anonimizar(ocultarDatosPersonales(cv));
+    for (const dato of ["Insurgentes", "Benito", "Reforma 222", "5512-3456"]) expect(r).not.toContain(dato);
+  });
+
+  it("no altera renglones de experiencia con municipio o años", () => {
+    const linea = "Auxiliar administrativo, Municipio de Zapopan (2019 - 2021)";
+    expect(anonimizar(`Ana Ficticia\n${linea}`)).toContain(linea);
   });
 });
