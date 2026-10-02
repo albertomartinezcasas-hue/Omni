@@ -3,6 +3,7 @@ import { Aviso } from "@/components/Aviso";
 import { BotonEliminarCv } from "@/components/BotonEliminarCv";
 import { boton, tarjeta, titulo } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
+import { FormularioNombreCandidato } from "@/components/FormularioNombreCandidato";
 import { ESTADO_SIN_TEXTO, ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
 import { consultarCv } from "@/lib/consultas";
 import { protegerPagina } from "@/lib/paginas";
@@ -30,6 +31,9 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
           una versión en PDF con texto o en DOCX.
         </Aviso>
       )}
+      <div className={tarjeta}>
+        <FormularioNombreCandidato cvId={cv.id} nombre={cv.nombreCandidato} />
+      </div>
       <dl className={`${tarjeta} grid gap-2 text-sm md:grid-cols-[12rem_1fr]`}>
         <dt className="font-semibold text-slate-700">Archivo original</dt>
         <dd className="break-words">{cv.nombreArchivo}</dd>

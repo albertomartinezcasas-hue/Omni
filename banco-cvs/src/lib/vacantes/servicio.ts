@@ -39,7 +39,23 @@ export async function crearVacante(actor: Actor, entrada: unknown) {
   });
 }
 
-/** Editar incrementa la versión: los análisis previos quedan "Desactualizados". */
+const ETIQUETA_CAMPO: Record<string, string> = {
+  titulo: "título",
+  area: "área",
+  descripcion: "descripción",
+  requisitosObligatorios: "requisitos obligatorios",
+  requisitosDeseables: "requisitos deseables",
+  aniosMinimos: "años mínimos",
+  nivelEstudiosMinimo: "estudios mínimos",
+  idiomas: "idiomas",
+  modalidad: "modalidad",
+  ubicacion: "ubicación",
+};
+
+/**
+ * Editar incrementa la versión: los análisis previos quedan "Desactualizados".
+ * Si no cambió ningún campo, no se guarda nada ni se registra en la bitácora.
+ */
 export async function editarVacante(actor: Actor, vacanteId: string, entrada: unknown) {
   const datos = aRegistro(entrada);
   return db.$transaction(async (tx) => {
@@ -48,6 +64,11 @@ export async function editarVacante(actor: Actor, vacanteId: string, entrada: un
     if (actual.estado === "ARCHIVADA") {
       throw new ErrorNegocio("La vacante está archivada y es de solo lectura.");
     }
+    const cambios = (Object.keys(datos) as (keyof typeof datos)[])
+      .filter((campo) => String(actual[campo]) !== String(datos[campo]))
+      .map((campo) => ({ campo: ETIQUETA_CAMPO[campo], anterior: actual[campo], nuevo: datos[campo] }));
+    if (cambios.length === 0) return actual;
+
     const vacante = await tx.vacante.update({
       where: { id: vacanteId },
       data: { ...datos, actualizadoPorId: actor.id, version: { increment: 1 } },
@@ -58,7 +79,7 @@ export async function editarVacante(actor: Actor, vacanteId: string, entrada: un
         accion: "VACANTE_EDITADA",
         entidadTipo: "VACANTE",
         entidadId: vacanteId,
-        detalle: { titulo: vacante.titulo, version: vacante.version },
+        detalle: { titulo: vacante.titulo, version: vacante.version, cambios },
       },
       tx,
     );

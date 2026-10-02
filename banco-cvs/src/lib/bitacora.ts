@@ -13,6 +13,7 @@ export type Accion =
   | "CV_SUBIDO"
   | "CV_DESCARGADO"
   | "CV_ELIMINADO"
+  | "CV_NOMBRE_CORREGIDO"
   | "ANALISIS_REALIZADO"
   | "CATEGORIA_AJUSTADA"
   | "VACANTE_CREADA"
@@ -33,6 +34,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   CV_SUBIDO: "CV subido",
   CV_DESCARGADO: "CV descargado",
   CV_ELIMINADO: "CV eliminado",
+  CV_NOMBRE_CORREGIDO: "Nombre de candidato corregido",
   ANALISIS_REALIZADO: "Análisis realizado",
   CATEGORIA_AJUSTADA: "Categoría ajustada",
   VACANTE_CREADA: "Vacante creada",

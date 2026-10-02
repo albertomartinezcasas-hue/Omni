@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { registrarEvento, type Actor } from "@/lib/bitacora";
 import { db } from "@/lib/db";
 import { ErrorNegocio } from "@/lib/errores";
@@ -127,6 +128,32 @@ export async function descargarCv(actor: Actor, cvId: string) {
     detalle: { archivo: cv.nombreArchivo },
   });
   return { contenido, nombreArchivo: cv.nombreArchivo, tipo: cv.tipo as "PDF" | "DOCX" };
+}
+
+/** Corrección manual del nombre del candidato (Usuario y Admin), con registro en la bitácora. */
+export async function corregirNombreCandidato(actor: Actor, cvId: string, nombre: unknown) {
+  const nuevo = z
+    .string()
+    .trim()
+    .min(2, { error: "Escribe el nombre del candidato." })
+    .max(120, { error: "El nombre es demasiado largo." })
+    .parse(nombre);
+  const cv = await db.cv.findUnique({ where: { id: cvId } });
+  if (!cv) throw new ErrorNegocio("El CV no existe.");
+  if (cv.nombreCandidato === nuevo) return;
+  await db.$transaction(async (tx) => {
+    await tx.cv.update({ where: { id: cvId }, data: { nombreCandidato: nuevo } });
+    await registrarEvento(
+      {
+        actor,
+        accion: "CV_NOMBRE_CORREGIDO",
+        entidadTipo: "CV",
+        entidadId: cvId,
+        detalle: { archivo: cv.nombreArchivo, anterior: cv.nombreCandidato, nuevo },
+      },
+      tx,
+    );
+  });
 }
 
 /** Eliminación definitiva (solo Admin; el permiso se verifica antes de llamar). */
