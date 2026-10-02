@@ -30,7 +30,15 @@ export function TablaCandidatos({
             {filas.length === 0 ? (
               <p className="px-6 pb-5 pt-2 text-sm text-slate-600">Sin candidatos en {ETIQUETA_CATEGORIA[categoria]}.</p>
             ) : (
-              <table className={`${tabla} mt-3`}>
+              <table className={`${tabla} mt-3 table-fixed`}>
+                {/* Mismos anchos en todos los grupos para comparar de un vistazo. */}
+                <colgroup>
+                  <col className="w-[34%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col" className={celdaEncabezado}>Candidato</th>
@@ -43,7 +51,7 @@ export function TablaCandidatos({
                 <tbody>
                   {filas.map((f) => (
                     <tr key={f.analisisId}>
-                      <td className={`${celda} max-w-xs`}>
+                      <td className={`${celda} break-words`}>
                         <Link href={`/analisis/${f.analisisId}`} className="font-semibold text-blue-700 hover:underline break-words">
                           {f.candidato}
                         </Link>
