@@ -156,6 +156,23 @@ export async function corregirNombreCandidato(actor: Actor, cvId: string, nombre
   });
 }
 
+/**
+ * Registra (o retira) la oposición del candidato al análisis con IA (Usuario y Admin), con registro en la bitácora.
+ * Con la oposición activa, el CV se conserva pero no se puede analizar.
+ */
+export async function marcarOposicionIA(actor: Actor, cvId: string, seOpone: boolean) {
+  const cv = await db.cv.findUnique({ where: { id: cvId } });
+  if (!cv) throw new ErrorNegocio("El CV no existe.");
+  if (cv.sinAnalisisIA === seOpone) return;
+  await db.$transaction(async (tx) => {
+    await tx.cv.update({ where: { id: cvId }, data: { sinAnalisisIA: seOpone } });
+    await registrarEvento(
+      { actor, accion: "CV_OPOSICION_IA", entidadTipo: "CV", entidadId: cvId, detalle: { seOpone } },
+      tx,
+    );
+  });
+}
+
 /** Eliminación definitiva (solo Admin; el permiso se verifica antes de llamar). */
 export async function eliminarCv(actor: Actor, cvId: string) {
   const cv = await db.cv.findUnique({ where: { id: cvId } });
@@ -186,6 +203,7 @@ export function listarCvs() {
       nombreArchivo: true,
       tipo: true,
       estado: true,
+      sinAnalisisIA: true,
       creadoEn: true,
       subidoPor: { select: { nombre: true } },
       _count: { select: { analisis: true } },
@@ -203,6 +221,7 @@ export function obtenerCv(id: string) {
       tipo: true,
       tamanoBytes: true,
       estado: true,
+      sinAnalisisIA: true,
       creadoEn: true,
       subidoPor: { select: { nombre: true } },
     },

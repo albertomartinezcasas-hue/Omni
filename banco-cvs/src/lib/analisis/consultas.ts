@@ -109,7 +109,7 @@ export async function detalleAnalisis(id: string) {
   const a = await db.analisis.findUnique({
     where: { id },
     include: {
-      cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true, estado: true } },
+      cv: { select: { id: true, nombreCandidato: true, nombreArchivo: true, estado: true, sinAnalisisIA: true } },
       vacante: { select: { id: true, titulo: true, version: true, estado: true } },
       creadoPor: { select: { nombre: true } },
       ajustes: { orderBy: { creadoEn: "desc" }, include: { autor: { select: { nombre: true } } } },

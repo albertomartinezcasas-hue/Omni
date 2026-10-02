@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Aviso } from "@/components/Aviso";
 import { BotonEliminarCv } from "@/components/BotonEliminarCv";
+import { BotonOposicionIA } from "@/components/BotonOposicionIA";
 import { boton, tarjeta, titulo } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
 import { FormularioNombreCandidato } from "@/components/FormularioNombreCandidato";
@@ -36,6 +37,12 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
           una versión en PDF con texto o en DOCX.
         </Aviso>
       )}
+      {cv.sinAnalisisIA && (
+        <Aviso tipo="info">
+          El candidato se opuso al análisis con IA: este CV no se puede analizar automáticamente. Evalúalo tú
+          directamente.
+        </Aviso>
+      )}
       <div className={tarjeta}>
         <FormularioNombreCandidato cvId={cv.id} nombre={cv.nombreCandidato} />
       </div>
@@ -48,10 +55,15 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
         <dd>{ETIQUETA_ESTADO_CV[cv.estado]}</dd>
         <dt className="font-semibold text-slate-700">Subido por</dt>
         <dd>{cv.subidoPor.nombre} · {formatearFecha(cv.creadoEn)}</dd>
+        <dt className="font-semibold text-slate-700">Análisis con IA</dt>
+        <dd className="flex flex-wrap items-center gap-3">
+          <span>{cv.sinAnalisisIA ? "El candidato se opuso" : "Permitido"}</span>
+          <BotonOposicionIA id={cv.id} seOpone={cv.sinAnalisisIA} />
+        </dd>
       </dl>
       <section className={`${tarjeta} space-y-4`} aria-labelledby="analisis-cv">
         <h2 id="analisis-cv" className="text-lg font-bold text-slate-900">Análisis</h2>
-        {cv.estado !== ESTADO_SIN_TEXTO && (
+        {cv.estado !== ESTADO_SIN_TEXTO && !cv.sinAnalisisIA && (
           <AnalizarContraVacante cvId={cv.id} vacantes={activas.map((v) => ({ id: v.id, titulo: v.titulo }))} />
         )}
         {analisis.length === 0 ? (

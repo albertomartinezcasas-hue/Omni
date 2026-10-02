@@ -39,7 +39,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
 
   const r = a.resultado;
   const archivada = a.vacante.estado === "ARCHIVADA";
-  const puedeReanalizar = !archivada && a.cv.estado === "CON_TEXTO";
+  const puedeReanalizar = !archivada && a.cv.estado === "CON_TEXTO" && !a.cv.sinAnalisisIA;
   const avisoAjuste = a.categoria.ajustadaPor
     ? `El ajuste manual de ${a.categoria.ajustadaPor} no se copiará al nuevo análisis (quedará visible como ajuste previo).`
     : undefined;

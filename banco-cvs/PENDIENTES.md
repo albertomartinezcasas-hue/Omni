@@ -264,5 +264,17 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Corregido (Alta): el borrador del aviso afirmaba que se retiran todos los datos protegidos. Ahora dice que el retiro es automatizado y no es infalible, y que el nombre y la trayectoria sí se envían.
   - Corregido (Alta): el borrador decía que el sistema nunca descarta solo. Ahora reconoce que el NO VIABLE firme es automático y propone revisar por procedimiento cada rechazo.
   - Corregido (Media): se agregaron al aviso el medio para limitar el uso o la divulgación de los datos y las notas sobre datos sensibles y conservación.
-  - **Media (requiere aprobación, cambia el esquema)**: un campo `sinAnalisisIA` en el CV para registrar que el candidato se opuso al análisis con IA y bloquearlo.
-  - **Media**: la eliminación automática al terminar el plazo de conservación.
+  - Resuelto más adelante: campo `sinAnalisisIA` para registrar la oposición al análisis con IA (ver la sección siguiente).
+  - Resuelto más adelante: la eliminación automática al terminar el plazo de conservación (ver la sección siguiente).
+
+### Conservación de 1 día y oposición al análisis con IA (decisiones del usuario)
+
+- Se quitó el recordatorio de la página de subida.
+- **Conservación:** los CVs se eliminan, con sus análisis, ajustes y archivos, cuando pasa `CONSERVACION_DIAS` (por defecto 1) desde su última actividad, es decir, la subida o el análisis más reciente.
+  - El servidor ejecuta la purga al arrancar y luego cada hora (`src/instrumentation.ts`). También se puede correr a mano con `npm run purgar`.
+  - La bitácora registra solo la cantidad eliminada, sin nombres.
+- **Oposición al análisis con IA:** el campo nuevo `Cv.sinAnalisisIA` tiene la migración `20261002205746_cv_sin_analisis_ia`.
+  - Se registra o se retira desde la página del CV, con confirmación y registro en la bitácora.
+  - Bloquea el análisis en el servidor y oculta los botones de analizar.
+- **Media**: los eventos anteriores de la bitácora (CV_SUBIDO, CV_ELIMINADO, CV_NOMBRE_CORREGIDO) pueden incluir el nombre del archivo o del candidato y no se purgan. Falta definir el plazo de conservación de la bitácora.
+- **Baja**: la base de datos local de desarrollo tiene una diferencia de checksum con la migración inicial (ya registrada). En producción, aplicar las migraciones con `npx prisma migrate deploy`.

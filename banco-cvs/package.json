@@ -12,6 +12,7 @@
     "crear-admin": "tsx --env-file-if-exists=.env scripts/crear-admin.ts",
     "fase4:pdfs": "tsx scripts/fase4/generar-pdfs.ts",
     "fase4:validar": "tsx --env-file-if-exists=.env scripts/fase4/validar.ts",
+    "purgar": "tsx --env-file-if-exists=.env scripts/purgar.ts",
     "db:migrar": "prisma migrate deploy",
     "postinstall": "prisma generate"
   },

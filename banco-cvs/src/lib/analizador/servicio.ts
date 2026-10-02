@@ -94,6 +94,9 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   if (!cv) throw new ErrorNegocio("El CV no existe.");
   if (!vacante) throw new ErrorNegocio("La vacante no existe.");
   if (vacante.estado === "ARCHIVADA") throw new ErrorNegocio("La vacante está archivada y es de solo lectura.");
+  if (cv.sinAnalisisIA) {
+    throw new ErrorNegocio("El candidato se opuso al análisis con IA: este CV solo puede evaluarlo una persona.");
+  }
   if (cv.estado !== "CON_TEXTO") {
     throw new ErrorNegocio("Este CV no tiene texto legible (posible PDF escaneado) y no se puede analizar.");
   }

@@ -13,6 +13,8 @@ export type Accion =
   | "CV_SUBIDO"
   | "CV_DESCARGADO"
   | "CV_ELIMINADO"
+  | "CV_ELIMINADO_POR_PLAZO"
+  | "CV_OPOSICION_IA"
   | "CV_NOMBRE_CORREGIDO"
   | "ANALISIS_REALIZADO"
   | "CATEGORIA_AJUSTADA"
@@ -34,6 +36,8 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   CV_SUBIDO: "CV subido",
   CV_DESCARGADO: "CV descargado",
   CV_ELIMINADO: "CV eliminado",
+  CV_ELIMINADO_POR_PLAZO: "CVs eliminados por plazo de conservación",
+  CV_OPOSICION_IA: "Oposición al análisis con IA",
   CV_NOMBRE_CORREGIDO: "Nombre de candidato corregido",
   ANALISIS_REALIZADO: "Análisis realizado",
   CATEGORIA_AJUSTADA: "Categoría ajustada",
@@ -49,6 +53,8 @@ type Evento = {
   actor: Actor | null;
   /** Solo cuando no hay actor (p. ej. inicio de sesión con un correo inexistente). */
   correoIntentado?: string;
+  /** Acción automática del sistema (p. ej. la purga por plazo de conservación). */
+  sistema?: boolean;
   accion: Accion;
   entidadTipo?: "USUARIO" | "CV" | "ANALISIS" | "VACANTE" | "UMBRALES";
   entidadId?: string;
@@ -61,8 +67,8 @@ export async function registrarEvento(evento: Evento, cliente: ClienteDb = db) {
   await cliente.eventoBitacora.create({
     data: {
       actorId: evento.actor?.id ?? null,
-      actorNombre: evento.actor?.nombre ?? "(desconocido)",
-      actorCorreo: evento.actor?.correo ?? evento.correoIntentado ?? "[inválido]",
+      actorNombre: evento.actor?.nombre ?? (evento.sistema ? "Sistema" : "(desconocido)"),
+      actorCorreo: evento.actor?.correo ?? (evento.sistema ? "sistema" : (evento.correoIntentado ?? "[inválido]")),
       accion: evento.accion,
       entidadTipo: evento.entidadTipo ?? null,
       entidadId: evento.entidadId ?? null,

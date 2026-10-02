@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BadgeCategoria } from "@/components/BadgeCategoria";
 import { boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, titulo, tarjetaTabla } from "@/components/estilos";
 import { formatearFecha } from "@/components/Fecha";
+import { diasDeConservacion } from "@/lib/archivos/conservacion";
 import { ETIQUETA_ESTADO_CV } from "@/lib/archivos/servicio";
 import { CATEGORIAS, ETIQUETA_CATEGORIA } from "@/lib/catalogos";
 import { consultarPersonasQueSubieron, consultarRepositorio, consultarVacantes } from "@/lib/consultas";
@@ -28,11 +29,18 @@ export default async function PaginaRepositorio({ searchParams }: { searchParams
     subidoPorId: f.subio || undefined,
   });
   const hayFiltros = Object.values(f).some(Boolean);
+  const dias = diasDeConservacion();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className={titulo}>Repositorio de CVs</h1>
+        <div>
+          <h1 className={titulo}>Repositorio de CVs</h1>
+          <p className="text-sm text-slate-700">
+            Los CVs se eliminan automáticamente {dias === 1 ? "1 día" : `${dias} días`} después de su última actividad
+            (subida o análisis), con sus análisis.
+          </p>
+        </div>
         <Link href="/cvs/subir" className={boton.primario}>Subir y analizar CVs</Link>
       </div>
 

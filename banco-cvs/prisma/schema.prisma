@@ -77,6 +77,8 @@ model Cv {
   hashTexto       String
   correoCandidato String?
   estado          String // CON_TEXTO | SIN_TEXTO_LEGIBLE
+  /// El candidato se opuso al análisis con IA: el CV se conserva, pero no se puede analizar.
+  sinAnalisisIA   Boolean    @default(false)
   subidoPorId     String
   subidoPor       Usuario    @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
   creadoEn        DateTime   @default(now())
