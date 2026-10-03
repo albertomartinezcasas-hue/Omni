@@ -373,6 +373,9 @@ function DetalleFila({
             <button type="button" className={boton.secundario} onClick={() => reintentar({ clave, forzar: false, cvId: estado.cvId })}>
               Reintentar
             </button>
+          ) : estado.cvId ? (
+            // El CV sí se guardó; el error final fue del análisis (vacante archivada, oposición, sin texto…).
+            <Link href={`/cvs/${estado.cvId}`} className={boton.enlace}>Ver CV</Link>
           ) : (
             <span className="text-slate-700">Revisa el archivo y vuelve a seleccionarlo.</span>
           )}

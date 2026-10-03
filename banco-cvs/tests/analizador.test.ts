@@ -5,7 +5,8 @@ import { solicitarExtraccion } from "@/lib/analizador/cliente";
 import { conLimiteDeAnalisis, MAX_ANALISIS_POR_MINUTO, reiniciarLimites } from "@/lib/analizador/limite";
 import { ocultarDatosPersonales } from "@/lib/analizador/ocultar";
 import { mensajeUsuario } from "@/lib/analizador/prompt";
-import { extraerEvidencia, vacanteEvaluada } from "@/lib/analizador/servicio";
+import { alertaPocoTexto, extraerEvidencia, vacanteEvaluada } from "@/lib/analizador/servicio";
+import { quitarMarcaPocoTexto } from "@/lib/archivos/extraer";
 import type { Extraccion, VacanteEvaluada } from "@/lib/analizador/tipos";
 import { verificarExtraccion } from "@/lib/analizador/verificar";
 import { subirCv } from "@/lib/archivos/servicio";
@@ -299,6 +300,34 @@ describe("Análisis completo (API simulada)", () => {
     expect(await db.eventoBitacora.count({ where: { accion: "ANALISIS_REALIZADO" } })).toBe(2);
   });
 
+  it("avisa de las páginas con poco texto sin cambiar el veredicto ni contarlo como manipulación", async () => {
+    const limpio = CV.split("\n").filter((l) => !l.startsWith("IMPORTANTE"));
+    api.mockResolvedValue({ json: JSON.stringify(extraccion()), modelo: "openai/gpt-oss-120b", modeloSolicitado: "m", proveedor: "groq" });
+    await simularSesion(usuario);
+    const resultados = [];
+    for (const marca of ["", "\n[PÁGINAS CON POCO TEXTO: 2]"]) {
+      const subida = await subirCv(usuario, { nombreArchivo: "poco.pdf", contenido: crearPdf(limpio), forzar: true });
+      if (subida.estado !== "GUARDADO") throw new Error();
+      const sinMarca = quitarMarcaPocoTexto((await db.cv.findUniqueOrThrow({ where: { id: subida.id } })).textoExtraido);
+      await db.cv.update({ where: { id: subida.id }, data: { textoExtraido: sinMarca + marca } });
+      const r = await analizarCvAccion(subida.id, vacanteId);
+      if (!r.ok) throw new Error(r.error);
+      resultados.push(await db.analisis.findUniqueOrThrow({ where: { id: r.datos.id } }));
+    }
+    const [sin, con] = resultados;
+    expect(con.veredicto).toBe(sin.veredicto);
+    expect(con.puntaje).toBe(sin.puntaje);
+    const alertas = JSON.parse(con.resultado).alertas as string[];
+    expect(alertas).toContain("La página 2 tiene muy poco texto (posible imagen): la IA no vio lo que esté en imagen; revisa el PDF original.");
+    expect(JSON.parse(sin.resultado).alertas.join(" ")).not.toContain("poco texto");
+    expect(await db.registroAnalisis.findUniqueOrThrow({ where: { analisisId: con.id } })).toMatchObject({ posibleManipulacion: false });
+    // La marca no se envía a la IA.
+    expect(api.mock.calls.at(-1)![1]).not.toContain("POCO TEXTO");
+    expect(alertaPocoTexto([2, 3, 5])).toEqual([
+      "Las páginas 2, 3 y 5 tienen muy poco texto (posible imagen): la IA no vio lo que esté en imagen; revisa el PDF original.",
+    ]);
+  });
+
   it("si la API falla no se guarda nada parcial y se ofrece Reintentar", async () => {
     const { ErrorApiAnalizador } = await import("@/lib/analizador/cliente");
     api.mockImplementation(async () => {
@@ -332,7 +361,8 @@ describe("Análisis completo (API simulada)", () => {
 
   it("sin sesión no se analiza", async () => {
     await simularSesion(null);
-    expect((await analizarCvAccion(cvId, vacanteId)).ok).toBe(false);
+    // Sesión expirada: se ofrece «Reintentar» (después de volver a iniciar sesión).
+    expect(await analizarCvAccion(cvId, vacanteId)).toMatchObject({ ok: false, transitorio: true });
   });
 
   it("vacanteEvaluada conserva los requisitos con sus ids", async () => {

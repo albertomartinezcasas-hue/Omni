@@ -134,8 +134,8 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Dato etiqueta="CVs analizados" valor={total.cvs} />
               <Dato etiqueta="Resultados (CV × vacante)" valor={total.resultados} />
-              <Dato etiqueta="Análisis realizados (cuenta también cada vez que se volvió a analizar un CV)" valor={total.analisis} />
-              <Dato etiqueta="Categorías ajustadas a mano (aunque el CV se haya vuelto a analizar después)" valor={resumen.ajustadas} />
+              <Dato etiqueta="Análisis realizados" valor={total.analisis} />
+              <Dato etiqueta="Ajustes manuales" valor={resumen.ajustadas} />
             </dl>
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Por categoría ({total.resultados} resultados)</h3>
@@ -203,9 +203,10 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
           <p className="text-xs text-slate-600">
             «CVs» cuenta cada CV una vez por segmento. «Resultados» es uno por CV y vacante; las categorías suman ese
             número y usan la categoría final (al analizar o por ajuste) del análisis más reciente de cada CV en cada
-            vacante dentro del periodo filtrado. Los ajustes manuales, sus motivos y los cambios de categoría cuentan
-            todos los del periodo, aunque el CV se haya re-analizado después. Un mismo candidato subido de nuevo después de eliminarse cuenta como otro CV. Los análisis
-            anteriores a este historial usan los umbrales vigentes al instalarlo.
+            vacante dentro del periodo filtrado. «Análisis realizados» cuenta también cada vez que se volvió a analizar
+            un CV. «Ajustes manuales» (y sus motivos y cambios de categoría) cuenta todos los ajustes del periodo,
+            aunque el CV se haya vuelto a analizar después. Un mismo candidato subido de nuevo después de eliminarse
+            cuenta como otro CV. Los análisis anteriores a este historial usan los umbrales vigentes al instalarlo.
           </p>
         </>
       )}

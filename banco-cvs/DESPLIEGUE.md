@@ -6,7 +6,7 @@ Banco de CVs corre en un solo servidor: Node.js 22 y SQLite, detrás de un proxy
 |---|---|---|
 | `data/` | Base de datos SQLite (`banco.db`) | Sí, con `npm run respaldo` |
 | `storage/` (o `STORAGE_DIR`) | Archivos de CVs (nombres UUID, nunca públicos) | Sí, va dentro del respaldo |
-| `respaldos/` | Copias generadas por `npm run respaldo` (completas y permanentes, ver §6) | Fuera del servidor, si TI lo requiere |
+| `respaldos/` | Copias generadas por `npm run respaldo` (completas y permanentes, ver §6) | Las `permanente-*`, obligatoriamente fuera del servidor (§6) |
 
 ## 1. Antes del primer despliegue (lista de verificación)
 
@@ -15,6 +15,7 @@ Banco de CVs corre en un solo servidor: Node.js 22 y SQLite, detrás de un proxy
 - [ ] **Plan de los proveedores de IA:** los planes gratuitos de Gemini y Groq tienen límites bajos, y el de Gemini puede usar los datos para entrenar. Para producción se recomiendan planes de pago.
 - [ ] **Dominio y certificado HTTPS** (por ejemplo `cvs.empresa.mx`).
 - [ ] **Respaldo** de cualquier `data/` y `storage/` existentes. La purga de 1 día se ejecuta al arrancar y borra lo que tenga más de 1 día de inactividad.
+- [ ] **Copia externa obligatoria de los respaldos permanentes:** configura la copia diaria de las carpetas `permanente-*` fuera del servidor (ver §6). Sin ella, perder el servidor es perder usuarios, vacantes, historial y bitácora.
 - [ ] **Probar la purga en un entorno de prueba** antes de producción: con una copia de la base y de `storage/`, ejecuta `npm run purgar` y revisa que borre solo lo vencido y que el conteo de huérfanos sea el esperado.
 - [ ] **Responsable de los pendientes de revisión:** nombra a una persona que revise cada día los candidatos «Pendiente de revisión». Revisarlos no amplía el plazo: si no se decide la categoría a tiempo, el CV se elimina y queda en el historial como «expiró sin revisión».
 - [ ] **Aviso de privacidad simplificado al candidato:** define cómo lo recibe antes de que se suba su CV (por ejemplo, en la convocatoria, en el correo con el que envía su CV o en el formulario de la bolsa de trabajo) y quién lo verifica. La app no lo muestra.
@@ -149,6 +150,7 @@ Ajusta los rangos a la red de tu monitoreo. Caddy obtiene y renueva el certifica
 |---|---|---|
 | Purga de CVs vencidos | Automática dentro del servidor; también a mano con `npm run purgar` | Al arrancar y cada hora |
 | Respaldo | `npm run respaldo` por cron (Docker: `docker exec banco-cvs npm run respaldo`) | Diario |
+| Copia externa de los respaldos permanentes (**obligatoria**) | `rsync` o `rclone` de `permanente-*/banco.db` a otro servidor, justo después del respaldo | Diario |
 | Monitoreo | `GET /api/salud` → `{"ok":true}` | Cada minuto |
 
 La purga también borra los archivos que ya no tienen un CV en la base («huérfanos»), con dos protecciones:
@@ -166,6 +168,21 @@ La cantidad de huérfanos borrados aparece en la salida de `npm run purgar` y en
 | Permanente | `permanente-<fecha>/` | Solo `banco.db`, sin CVs, análisis ni ajustes: historial, vacantes, usuarios, bitácora y umbrales | `RESPALDO_PERMANENTE_DIAS` (por defecto, 30 días) |
 
 El respaldo completo contiene CVs: si TI necesita conservarlo más tiempo, ajusta `RESPALDO_DIAS` y declara ese plazo en el aviso de privacidad. El permanente no tiene datos de candidatos: el historial queda con seudónimos y la base se compacta (VACUUM) para no dejar restos. La rotación usa 1 hora de margen, para que con un cron diario el respaldo de ayer no sobreviva un día de más.
+
+**Copia externa (obligatoria).** Los respaldos viven en el mismo servidor que la app: copia fuera de él las carpetas `permanente-*` (solo `banco.db`, sin datos de candidatos). No copies los respaldos completos (`respaldo-*`): tienen CVs y saldrían del plazo de conservación, salvo que el aviso de privacidad lo declare. Ejemplo de cron (`/etc/cron.d/banco-cvs`):
+
+```cron
+# 2:15 a. m.: respaldo y copia de los permanentes a otro servidor (con rsync por SSH)
+15 2 * * * root docker exec banco-cvs npm run respaldo && rsync -a --include='permanente-*/' --include='permanente-*/banco.db' --exclude='*' /srv/banco-cvs/respaldos/ respaldos@respaldo.empresa.mx:/respaldos/banco-cvs/
+```
+
+Con `rclone` (por ejemplo, a un almacenamiento en la nube configurado como `remoto`):
+
+```bash
+rclone copy /srv/banco-cvs/respaldos remoto:banco-cvs --include "permanente-*/banco.db"
+```
+
+El destino externo define su propia retención (por ejemplo, 30 días o lo que TI requiera). Revisa cada semana que las copias lleguen.
 
 ## 7. Actualizar a una versión nueva
 
@@ -192,7 +209,30 @@ La purga borrará al arrancar los CVs que ya hayan vencido.
 
 Se recuperan usuarios, vacantes, umbrales, historial y bitácora. Los CVs se vuelven a subir.
 
-## 9. Lo que no cubre esta guía
+## 9. Probar en local
+
+En producción (`NODE_ENV=production`, como con `npm start` o la imagen de Docker), el servidor **no arranca** si `AUTH_URL` no usa https, ni siquiera con `localhost`. Para probar en tu equipo:
+
+- **Desarrollo:** `npm run dev` con `AUTH_URL=http://localhost:3000`. Fuera de producción, la configuración solo avisa.
+- **Producción en local:** pon un proxy TLS delante. Con Caddy, que genera un certificado local de confianza:
+
+  ```
+  # Caddyfile
+  localhost {
+      tls internal
+      reverse_proxy 127.0.0.1:3000
+  }
+  ```
+
+  ```bash
+  npm run build
+  AUTH_URL=https://localhost npm start   # junto con el resto de las variables de .env
+  caddy run                              # en otra terminal, en la carpeta del Caddyfile
+  ```
+
+  Abre `https://localhost`. La primera vez, Caddy puede pedir permiso para instalar su certificado raíz local.
+
+## 10. Lo que no cubre esta guía
 
 - **Inicio de sesión con Microsoft Entra ID:** ver `MIGRACION_MICROSOFT.md`.
 - **Más de una instancia:** el límite de análisis y la purga viven en memoria de un solo proceso. Para escalar hay que llevarlos a la base de datos.

@@ -1,6 +1,7 @@
 import { registrarEvento, type Actor } from "@/lib/bitacora";
 import type { NivelEstudio, NivelIdioma } from "@/lib/catalogos";
 import { db } from "@/lib/db";
+import { paginasConPocoTexto, quitarMarcaPocoTexto } from "@/lib/archivos/extraer";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 import { ErrorNegocio, ErrorTransitorio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
@@ -84,6 +85,17 @@ export function vacanteEvaluada(v: {
   };
 }
 
+/** «La página 2 tiene muy poco texto (posible imagen)…»: lo que esté en imagen no llegó a la IA. */
+export function alertaPocoTexto(paginas: number[]): string[] {
+  if (paginas.length === 0) return [];
+  const lista = paginas.length === 1 ? String(paginas[0]) : `${paginas.slice(0, -1).join(", ")} y ${paginas.at(-1)}`;
+  return [
+    paginas.length === 1
+      ? `La página ${lista} tiene muy poco texto (posible imagen): la IA no vio lo que esté en imagen; revisa el PDF original.`
+      : `Las páginas ${lista} tienen muy poco texto (posible imagen): la IA no vio lo que esté en imagen; revisa el PDF original.`,
+  ];
+}
+
 /**
  * Analiza un CV contra una vacante (Pasos 1 a 6). Si algo falla no se guarda nada parcial.
  * Devuelve el id del análisis guardado.
@@ -104,7 +116,8 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   }
 
   const evaluada = vacanteEvaluada(vacante);
-  const { texto: textoOculto, omitidos } = neutralizarInstrucciones(ocultarDatosPersonales(cv.textoExtraido));
+  // La marca de páginas con poco texto es para la alerta: no se envía a la IA.
+  const { texto: textoOculto, omitidos } = neutralizarInstrucciones(ocultarDatosPersonales(quitarMarcaPocoTexto(cv.textoExtraido)));
   const fechaAnalisis = new Date();
 
   let ext: Awaited<ReturnType<typeof extraerEvidencia>>;
@@ -122,6 +135,8 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   const alertasCodigo = [
     ...(textoOcultoOmitido ? [`El PDF tenía ${textoOcultoOmitido} caracteres en letra diminuta (posible texto oculto); se omitieron.`] : []),
     ...(omitidos ? [`Se ignoraron ${omitidos} renglón(es) con texto que parece una instrucción al sistema.`] : []),
+    // Aviso, no manipulación: no cambia el veredicto ni cuenta como «posible manipulación».
+    ...alertaPocoTexto(paginasConPocoTexto(cv.textoExtraido)),
   ];
   const resultado = {
     ...verificado,

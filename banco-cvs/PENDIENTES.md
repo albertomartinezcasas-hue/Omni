@@ -397,3 +397,17 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - doble punto en el análisis;
   - modelo de IA legible en el análisis, la bitácora y el CSV;
   - textos del aviso de desplazamiento y del historial.
+
+### Ronda 3 (auditor: sin regresiones, 2 Baja; expertos: los tres aprueban) → corregida por el implementador
+
+- Corregido (Media): respaldo permanente atómico. Se trabaja en un archivo temporal, se verifica que no queden CVs, análisis ni ajustes y solo entonces se renombra; si algo falla, se borra la carpeta. La rotación elimina las carpetas incompletas.
+- Corregido (Media): alerta de páginas con poco texto (posible imagen), sin cambiar el veredicto.
+- Corregido (Media): el error final del análisis enlaza «Ver CV»; con sesión expirada se puede reintentar.
+- Corregido (Media): copia externa obligatoria del respaldo permanente y la sección «Probar en local» en `DESPLIEGUE.md`.
+- Corregido (Baja):
+  - el barrido lee el disco fuera de la transacción;
+  - motivo `RESPALDO`;
+  - etiquetas cortas en el historial;
+  - expectativa del CV 08 en la validación de la fase 4 («Pendiente de revisión», por la regla de relevancia aprobada).
+- Validación con IA real (Groq y cadena de Gemini): 8 de 9 coinciden; el CV 08 da «Pendiente de revisión», lo que corresponde a la regla aprobada.
+- **Decisión pendiente del usuario**: ¿una página con muy poco texto debe dejar el análisis en «Pendiente de revisión»? Hoy solo genera una alerta, porque cambiarlo modifica las reglas del veredicto.

@@ -4,6 +4,8 @@
 // deseables D1 Python, D2 Estadística descriptiva; mínimo 1 año; Licenciatura; Inglés Intermedio.
 // Fecha de referencia del cálculo a mano: octubre 2026.
 
+import type { Categoria } from "../../src/lib/catalogos";
+
 export const VACANTE_FASE4 = {
   titulo: "Analista de Datos Jr.",
   area: "Inteligencia de Negocios",
@@ -20,7 +22,7 @@ export const VACANTE_FASE4 = {
 
 export type CvPrueba = {
   archivo: string;
-  esperado: "EXCELENTE" | "BUENO" | "PASABLE" | "NO_VIABLE";
+  esperado: Categoria;
   calculo: string;
   lineas: string[];
   /** Texto en blanco y de 1 pt: invisible al leer el PDF, pero presente en el texto extraído. */
@@ -192,9 +194,11 @@ export const CVS_FASE4: CvPrueba[] = [
   },
   {
     archivo: "08-fernando-original-no-relevante.pdf",
-    esperado: "NO_VIABLE",
+    // Antes: NO VIABLE. Con la regla aprobada de relevancia, si los puestos «no contados» alcanzan el mínimo de
+    // experiencia, el descarte lo confirma una persona: queda «Pendiente de revisión» (confirmado con la IA real).
+    esperado: "REVISION",
     calculo:
-      "CV 06 original: su único puesto (Asistente de Ventas de mostrador) no aplica ningún requisito → no es experiencia relevante → 0 años < 1 → NO VIABLE por requisito (E = 0), con el puesto visible como «no contado» y su justificación.",
+      "CV 06 original: su único puesto (Asistente de Ventas de mostrador, ene - dic 2025) no aplica ningún requisito → no es experiencia relevante → 0 años relevantes < 1. Pero con ese puesto no contado (12 meses) se alcanza el mínimo → PENDIENTE DE REVISIÓN: una persona confirma su relevancia. El puesto queda visible como «no contado» con su justificación.",
     lineas: [
       "FERNANDO FICTICIO RAMOS",
       "fernando.ficticio@correo-ficticio.mx",

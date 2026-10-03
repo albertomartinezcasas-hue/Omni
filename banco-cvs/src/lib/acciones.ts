@@ -35,7 +35,10 @@ export async function ejecutarAccion<T>(
     const usuario = await requerirRol(rol);
     return { ok: true, datos: await fn(usuario) };
   } catch (error) {
-    return { ok: false, error: mensajeDeError(error), ...(error instanceof ErrorTransitorio ? { transitorio: true as const } : {}) };
+    // Transitorios: IA saturada o sin respuesta, límite por minuto y sesión expirada (se reintenta tras volver a entrar).
+    const transitorio =
+      error instanceof ErrorTransitorio || (error instanceof ErrorAutorizacion && error.motivo === "NO_AUTENTICADO");
+    return { ok: false, error: mensajeDeError(error), ...(transitorio ? { transitorio: true as const } : {}) };
   }
 }
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, utimesSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -29,10 +29,11 @@ beforeAll(async () => {
   });
 });
 
-/** Carpeta `nombre` dentro de `destino` con fecha de modificación de hace `antiguedad` ms. */
-function carpetaVieja(destino: string, nombre: string, antiguedad: number) {
+/** Respaldo `nombre` (con su banco.db, salvo `incompleto`) y fecha de modificación de hace `antiguedad` ms. */
+function carpetaVieja(destino: string, nombre: string, antiguedad: number, incompleto = false) {
   const ruta = path.join(destino, nombre);
   mkdirSync(ruta, { recursive: true });
+  if (!incompleto) writeFileSync(path.join(ruta, "banco.db"), "x");
   const fecha = new Date(Date.now() - antiguedad);
   utimesSync(ruta, fecha, fecha);
   return ruta;
@@ -64,7 +65,7 @@ describe("Respaldos en dos niveles", () => {
     } finally {
       await permanente.$disconnect();
     }
-    expect(readdirSync(r.permanente)).toEqual(["banco.db"]); // sin carpeta storage/
+    expect(readdirSync(r.permanente)).toEqual(["banco.db"]); // sin carpeta storage/ ni banco.db.tmp
     // Tras el VACUUM no quedan restos del CV en páginas libres del archivo.
     const bytes = readFileSync(archivoPermanente);
     expect(bytes.includes("ZZQXUNICO")).toBe(false);
@@ -86,6 +87,27 @@ describe("Respaldos en dos niveles", () => {
     expect(existsSync(permanenteVencido)).toBe(false);
     expect(existsSync(ajeno)).toBe(true);
     expect(existsSync(r.completo) && existsSync(r.permanente)).toBe(true);
+  });
+
+  it("si el respaldo permanente falla a la mitad, no deja la copia con CVs y propaga el error", async () => {
+    const destino = mkdtempSync(path.join(tmpdir(), "banco-cvs-fallo-"));
+    const ahora = new Date("2026-05-01T10:00:00.000Z");
+    const permanente = path.join(destino, `permanente-${ahora.toISOString().replace(/[:.]/g, "-")}`);
+    // Un directorio no vacío llamado banco.db hace fallar el renombrado final (después de VACUUM INTO y del borrado).
+    mkdirSync(path.join(permanente, "banco.db", "ocupado"), { recursive: true });
+    await expect(crearRespaldos({ destino, diasCompleto: 1, diasPermanente: 30, ahora })).rejects.toThrow();
+    expect(existsSync(permanente)).toBe(false);
+    expect(readdirSync(destino).filter((n) => n.startsWith("permanente-"))).toEqual([]);
+  });
+
+  it("la rotación borra las carpetas permanentes incompletas (sin banco.db), aunque sean recientes", async () => {
+    const destino = mkdtempSync(path.join(tmpdir(), "banco-cvs-incompleto-"));
+    const incompleta = carpetaVieja(destino, "permanente-incompleta", 1 * HORA, true);
+    writeFileSync(path.join(incompleta, "banco.db.tmp"), "copia a medio limpiar");
+    const completa = carpetaVieja(destino, "permanente-completa", 1 * HORA);
+    await crearRespaldos({ destino, diasCompleto: 1, diasPermanente: 30 });
+    expect(existsSync(incompleta)).toBe(false);
+    expect(existsSync(completa)).toBe(true);
   });
 
   it("valida los días de cada nivel", () => {

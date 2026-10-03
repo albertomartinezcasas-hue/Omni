@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { POST as subir } from "@/app/api/cvs/route";
-import { esTextoLegible } from "@/lib/archivos/extraer";
+import { esTextoLegible, extraerContenido, paginasConPocoTexto } from "@/lib/archivos/extraer";
 import { detectarTipo } from "@/lib/archivos/firma";
 import { errorTransitorio } from "@/lib/errores";
 import { subirCv } from "@/lib/archivos/servicio";
@@ -117,6 +117,30 @@ describe("Validación y almacenamiento de archivos", () => {
       forzar: true,
     });
     expect(real).toMatchObject({ estado: "GUARDADO", sinTexto: false });
+  });
+
+  it("marca las páginas con poco texto: una página-imagen en medio y un PDF de 1 página escaso", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const pdf = await PDFDocument.create();
+    const fuente = await pdf.embedFont(StandardFonts.Helvetica);
+    const renglon = "Analista de datos con experiencia en SQL, Excel avanzado, Power BI y reportes de ventas semanales.";
+    for (let i = 0; i < 3; i++) {
+      const pagina = pdf.addPage([612, 792]);
+      // La página 2 sería una imagen: sin texto. El promedio (más de 250 por página) la escondería.
+      if (i !== 1) for (let j = 0; j < 8; j++) pagina.drawText(renglon, { x: 40, y: 740 - j * 14, size: 9, font: fuente });
+    }
+    const { texto, paginas } = await extraerContenido(Buffer.from(await pdf.save()), "PDF");
+    expect(esTextoLegible(texto, paginas)).toBe(true);
+    expect(paginasConPocoTexto(texto)).toEqual([2]);
+
+    // 1 página con más de 100 caracteres pero menos de 600: el cuerpo podría ser una imagen.
+    const breve = await extraerContenido(crearPdf(textoCv("Pita Ficticia", "pita@correo-ficticio.mx")), "PDF");
+    expect(esTextoLegible(breve.texto, breve.paginas)).toBe(true);
+    expect(paginasConPocoTexto(breve.texto)).toEqual([1]);
+
+    // Un CV de 1 página con texto suficiente no se marca.
+    const completo = await extraerContenido(crearPdf(Array.from({ length: 10 }, () => renglon)), "PDF");
+    expect(paginasConPocoTexto(completo.texto)).toEqual([]);
   });
 
   it("marca 'Sin texto legible' si casi no hay texto", async () => {

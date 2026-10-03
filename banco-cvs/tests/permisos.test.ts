@@ -229,7 +229,8 @@ describe("Matriz de permisos", () => {
 
   it("Sin sesión: toda acción, consulta y ruta se rechaza", async () => {
     await simularSesion(null);
-    const sesionExpirada = { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+    // Transitorio: tras volver a iniciar sesión se puede reintentar.
+    const sesionExpirada = { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión.", transitorio: true };
     expect(await crearVacanteAccion(undefined, formVacante())).toEqual(sesionExpirada);
     expect(await eliminarCvAccion("x")).toEqual(sesionExpirada);
     await expect(consultarCvs()).rejects.toMatchObject({ motivo: "NO_AUTENTICADO" });

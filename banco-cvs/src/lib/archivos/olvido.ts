@@ -18,9 +18,10 @@ export function inicioDelDiaCdmx(fecha: Date) {
  * Debe llamarse dentro de la transacción que elimina los CVs, ANTES de borrarlos. En el historial:
  * - el id del CV pasa a un seudónimo aleatorio (uno por CV, para seguir contando CVs distintos);
  * - el id del análisis queda en nulo y las fechas se redondean al día, para no poder cruzarlo con la bitácora;
- * - si seguía «Pendiente de revisión», queda marcado como «expiró sin revisión».
+ * - si seguía «Pendiente de revisión» y se eliminó por plazo, queda marcado como «expiró sin revisión».
+ * Motivos: PLAZO (purga), MANUAL (un Admin lo eliminó) y RESPALDO (solo en la copia permanente del respaldo).
  */
-export async function olvidarCvs(tx: ClienteDb, cvIds: string[], motivo: "PLAZO" | "MANUAL") {
+export async function olvidarCvs(tx: ClienteDb, cvIds: string[], motivo: "PLAZO" | "MANUAL" | "RESPALDO") {
   for (const cvId of cvIds) {
     const seudonimo = `${PREFIJO_SEUDONIMO}${randomUUID()}`;
     const registros = await tx.registroAnalisis.findMany({
@@ -39,6 +40,9 @@ export async function olvidarCvs(tx: ClienteDb, cvIds: string[], motivo: "PLAZO"
           fecha: inicioDelDiaCdmx(r.fecha),
           fechaAjuste: r.fechaAjuste ? inicioDelDiaCdmx(r.fechaAjuste) : null,
           // Solo una eliminación por plazo cuenta como «expiró sin revisión» (no la que hace un Admin a mano).
+          // RESPALDO: el CV sigue vigente en la app y solo se quita de la copia permanente; sus pendientes quedan
+          // abiertos. No hay un campo para distinguirlos sin cambiar el esquema: al restaurar un respaldo permanente,
+          // esos «Pendiente de revisión» aparecen sin resolver (y ya no se pueden resolver, porque el CV no está).
           expiroSinRevision: motivo === "PLAZO" && r.categoriaFinal === "REVISION" && vigentePorVacante.get(r.vacanteId) === r.id,
         },
       });

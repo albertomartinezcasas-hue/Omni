@@ -15,6 +15,23 @@ export const MIN_CARACTERES_POR_PAGINA = 250;
 /** Texto de menos de 3 pt no se lee a simple vista: se omite (posible texto oculto para manipular el análisis). */
 const TAMANO_MINIMO_VISIBLE = 3;
 export const MARCA_TEXTO_OCULTO = "[TEXTO OCULTO OMITIDO";
+// Páginas con poco texto (posible imagen): se marcan al extraer para avisar al analizar. No cambian el veredicto.
+// Una página de un CV con texto real rara vez baja de 250 caracteres; un CV de 1 página, de 600.
+export const MIN_CARACTERES_PAGINA = 250;
+export const MIN_CARACTERES_PAGINA_UNICA = 600;
+export const MARCA_POCO_TEXTO = "[PÁGINAS CON POCO TEXTO";
+const REGEX_MARCAS = /\[(?:TEXTO OCULTO OMITIDO|PÁGINAS CON POCO TEXTO)[^\]]*\]/g;
+const REGEX_POCO_TEXTO = /\n?\[PÁGINAS CON POCO TEXTO: ([\d, ]+)\]/;
+
+/** Números de página (desde 1) con menos texto del esperado, según la marca guardada en el texto extraído. */
+export function paginasConPocoTexto(texto: string): number[] {
+  return texto.match(REGEX_POCO_TEXTO)?.[1].split(",").map((n) => Number(n.trim())).filter((n) => n > 0) ?? [];
+}
+
+/** Texto sin la marca de páginas con poco texto (es un metadato para la alerta, no contenido del CV). */
+export function quitarMarcaPocoTexto(texto: string) {
+  return texto.replace(REGEX_POCO_TEXTO, "");
+}
 
 async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string; paginas: number }> {
   if (tipo === "PDF") {
@@ -22,17 +39,24 @@ async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string;
     const { items } = await extractTextItems(pdf);
     let texto = "";
     let ocultos = 0;
+    const porPagina: number[] = [];
     for (const pagina of items) {
+      let visibles = 0;
       for (const item of pagina) {
         if (item.str.trim() && item.fontSize > 0 && item.fontSize < TAMANO_MINIMO_VISIBLE) {
           ocultos += item.str.length;
           continue;
         }
         texto += item.str + (item.hasEOL ? "\n" : "");
+        visibles += item.str.replace(/\s+/g, "").length;
       }
       texto += "\n";
+      porPagina.push(visibles);
     }
     if (ocultos > 0) texto += `\n${MARCA_TEXTO_OCULTO}: ${ocultos} caracteres en letra diminuta]`;
+    const minimo = porPagina.length === 1 ? MIN_CARACTERES_PAGINA_UNICA : MIN_CARACTERES_PAGINA;
+    const escasas = porPagina.flatMap((n, i) => (n < minimo ? [i + 1] : []));
+    if (escasas.length > 0) texto += `\n${MARCA_POCO_TEXTO}: ${escasas.join(", ")}]`;
     return { texto, paginas: items.length };
   }
   const { value } = await mammoth.extractRawText({ buffer: buf });
@@ -63,8 +87,8 @@ export async function extraerTexto(buf: Buffer, tipo: TipoArchivo): Promise<stri
  * imagen) y se pide una versión con texto: así la IA no lo descarta por falta de evidencia que sí está en la imagen.
  */
 export function esTextoLegible(texto: string, paginas = 1) {
-  // La marca de texto oculto la agrega el sistema: no es texto del CV.
-  const visible = texto.replace(/\[TEXTO OCULTO OMITIDO[^\]]*\]/g, "");
+  // Las marcas (texto oculto, páginas con poco texto) las agrega el sistema: no son texto del CV.
+  const visible = texto.replace(REGEX_MARCAS, "");
   const caracteres = visible.replace(/\s+/g, "").length;
   const palabras = visible.match(/\p{L}{2,}/gu)?.length ?? 0;
   if (caracteres < MIN_CARACTERES_LEGIBLES || palabras < MIN_PALABRAS_LEGIBLES) return false;

@@ -55,11 +55,13 @@ export async function purgarCvsVencidos(
   const limite = new Date(ahora.getTime() - dias * DIA_MS);
   const vencido = { creadoEn: { lt: limite }, analisis: { none: { creadoEn: { gte: limite } } } };
 
+  // El disco se lee fuera de la transacción (tiene un límite de tiempo); dentro solo se compara contra la base.
+  const archivos = await leerArchivosDeCvs();
   const { eliminados, huerfanos } = await db.$transaction(async (tx) => {
     // El barrido se planea con la base ANTES de borrar: los archivos de los CVs vencidos cuentan como coincidencias,
     // así que se reconocen aunque esta misma purga deje la base vacía.
     const enBase = new Set((await tx.cv.findMany({ select: { archivoId: true } })).map((c) => c.archivoId));
-    const huerfanos = await planearBarrido(enBase, ahora, dias);
+    const huerfanos = elegirHuerfanos(archivos, enBase, ahora, dias);
 
     const lista = await tx.cv.findMany({ where: vencido, select: { id: true, archivoId: true } });
     let borrados: typeof lista = [];
@@ -115,13 +117,10 @@ export async function purgarCvsVencidos(
   return { cvs: eliminados.length, huerfanos: huerfanosBorrados };
 }
 
-/**
- * Archivos de la carpeta de CVs que ya no tienen un CV en la base y se pueden borrar. Por seguridad:
- * - la mayoría (más del 50 %) de los archivos debe corresponder a CVs de la base: prueba de que carpeta y base son
- *   la misma instalación (no otro DATABASE_URL, otra STORAGE_DIR ni una copia vieja de la base);
- * - solo cuentan los archivos más antiguos que el plazo de conservación más 2 h.
- */
-export async function planearBarrido(enBase: Set<string>, ahora: Date, dias: number): Promise<string[]> {
+type ArchivoEnDisco = { nombre: string; modificado: number };
+
+/** Archivos de CVs (nombres UUID) de la carpeta, con su fecha de modificación. */
+async function leerArchivosDeCvs(): Promise<ArchivoEnDisco[]> {
   const directorio = directorioAlmacenamiento();
   let nombres: string[];
   try {
@@ -129,27 +128,36 @@ export async function planearBarrido(enBase: Set<string>, ahora: Date, dias: num
   } catch {
     return []; // aún no existe storage/
   }
-  const sinRegistro = nombres.filter((nombre) => !enBase.has(nombre));
+  const archivos: ArchivoEnDisco[] = [];
+  for (const nombre of nombres) {
+    try {
+      archivos.push({ nombre, modificado: (await stat(path.join(directorio, nombre))).mtimeMs });
+    } catch {
+      // Se borró mientras se leía o error de disco: se ignora.
+    }
+  }
+  return archivos;
+}
+
+/**
+ * Archivos que ya no tienen un CV en la base y se pueden borrar. Por seguridad:
+ * - la mayoría (más del 50 %) de los archivos debe corresponder a CVs de la base: prueba de que carpeta y base son
+ *   la misma instalación (no otro DATABASE_URL, otra STORAGE_DIR ni una copia vieja de la base);
+ * - solo cuentan los archivos más antiguos que el plazo de conservación más 2 h.
+ */
+export function elegirHuerfanos(archivos: ArchivoEnDisco[], enBase: Set<string>, ahora: Date, dias: number): string[] {
+  const sinRegistro = archivos.filter((a) => !enBase.has(a.nombre));
   if (sinRegistro.length === 0) return [];
-  const coinciden = nombres.length - sinRegistro.length;
-  if (coinciden * 2 <= nombres.length) {
+  const coinciden = archivos.length - sinRegistro.length;
+  if (coinciden * 2 <= archivos.length) {
     console.warn(
-      `[conservacion] Solo ${coinciden} de ${nombres.length} archivos de la carpeta de CVs corresponden a la base de ` +
+      `[conservacion] Solo ${coinciden} de ${archivos.length} archivos de la carpeta de CVs corresponden a la base de ` +
         "datos: no se barrieron huérfanos. Revisa que DATABASE_URL y STORAGE_DIR apunten a la misma instalación.",
     );
     return [];
   }
   const antiguedadMinima = dias * DIA_MS + MARGEN_HUERFANOS_MS;
-  const huerfanos: string[] = [];
-  for (const nombre of sinRegistro) {
-    try {
-      const info = await stat(path.join(directorio, nombre));
-      if (ahora.getTime() - info.mtimeMs > antiguedadMinima) huerfanos.push(nombre);
-    } catch {
-      // Error de disco: se ignora.
-    }
-  }
-  return huerfanos;
+  return sinRegistro.filter((a) => ahora.getTime() - a.modificado > antiguedadMinima).map((a) => a.nombre);
 }
 
 let iniciada = false;
