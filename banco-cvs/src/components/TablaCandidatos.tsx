@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { FilaCandidato } from "@/lib/analisis/consultas";
 import { describirMeses } from "@/lib/analizador/fechas";
+import { tiempoRestante } from "@/lib/archivos/conservacion";
 import {
   CATEGORIAS,
   ETIQUETA_CATEGORIA,
@@ -49,13 +50,6 @@ function EvidenciaClave({ c }: { c: FilaCandidato["clave"] }) {
   );
 }
 
-/** «Expira en X h» para los pendientes de revisión: el CV se elimina por el plazo de conservación. */
-function tiempoRestante(seElimina: Date) {
-  const horas = (seElimina.getTime() - Date.now()) / 3_600_000;
-  if (horas <= 1) return "Expira en menos de 1 h: revísalo ya";
-  return `Expira en ${Math.floor(horas)} h si no se revisa`;
-}
-
 export function TablaCandidatos({
   grupos,
   vacanteId,
@@ -72,6 +66,10 @@ export function TablaCandidatos({
           O · D · E · F
         </abbr>{" "}
         = Obligatorios (40 %) · Deseables (25 %) · Experiencia (20 %) · Formación e idiomas (15 %), cada uno de 0 a 100.
+      </p>
+      {/* En pantallas angostas las tablas se desplazan de lado y no siempre se nota. */}
+      <p className="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 lg:hidden">
+        Desliza cada tabla hacia la izquierda para ver más columnas →
       </p>
       {CATEGORIAS.map((categoria) => {
         const filas = grupos[categoria];

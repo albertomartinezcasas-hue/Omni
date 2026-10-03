@@ -5,3 +5,11 @@ export class ErrorNegocio extends Error {
     this.name = "ErrorNegocio";
   }
 }
+
+/**
+ * Carga de CVs: ¿vale la pena reintentar? 400 (formato, archivo vacío o dañado), 403 y 413 (más de 10 MB) son
+ * permanentes; la sesión (401), la saturación (429) y los errores del servidor (5xx) pueden resolverse al reintentar.
+ */
+export function errorTransitorio(estadoHttp: number) {
+  return estadoHttp === 401 || estadoHttp === 408 || estadoHttp === 429 || estadoHttp >= 500;
+}

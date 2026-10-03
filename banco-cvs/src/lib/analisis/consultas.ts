@@ -4,6 +4,7 @@ import { diasDeConservacion, fechaDeEliminacion } from "@/lib/archivos/conservac
 import type { ResultadoVerificado, VacanteEvaluada } from "@/lib/analizador/tipos";
 import { CATEGORIAS, type Categoria } from "@/lib/catalogos";
 import { db } from "@/lib/db";
+import { fechaDeFiltro } from "@/lib/fechas";
 import { obtenerUmbrales, type Umbrales } from "@/lib/umbrales/servicio";
 
 const incluirAjuste = {
@@ -162,6 +163,13 @@ export async function detalleAnalisis(id: string) {
   };
 }
 
+const LIMITE_REPOSITORIO = 300;
+
+/** Minúsculas y sin acentos: «HÉCTOR NÚÑEZ» → «hector nunez». */
+export function normalizarBusqueda(texto: string) {
+  return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 export type FiltrosRepositorio = {
   q?: string;
   vacanteId?: string;
@@ -176,32 +184,34 @@ export type FiltrosRepositorio = {
  * y persona que lo subió. La categoría se calcula con el análisis más reciente del CV para la vacante elegida.
  */
 export async function buscarCvs(f: FiltrosRepositorio) {
-  const q = f.q?.trim();
-  const fecha = (valor: string | undefined, finDelDia: boolean) => {
-    if (!valor || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return undefined;
-    // Fechas capturadas en CDMX (UTC−6).
-    return new Date(`${valor}T${finDelDia ? "23:59:59.999" : "00:00:00.000"}-06:00`);
+  const q = f.q ? normalizarBusqueda(f.q.trim()) : "";
+  // Fechas capturadas en CDMX (UTC−6); una fecha inválida se ignora.
+  const desde = fechaDeFiltro(f.desde, false);
+  const hasta = fechaDeFiltro(f.hasta, true);
+  const filtros = {
+    ...(f.subidoPorId ? { subidoPorId: f.subidoPorId } : {}),
+    ...(desde || hasta ? { creadoEn: { ...(desde ? { gte: desde } : {}), ...(hasta ? { lte: hasta } : {}) } } : {}),
+    ...(f.vacanteId ? { analisis: { some: { vacanteId: f.vacanteId } } } : {}),
   };
-  const desde = fecha(f.desde, false);
-  const hasta = fecha(f.hasta, true);
+
+  // SQLite no compara sin acentos: la palabra clave se busca en memoria (los CVs se conservan pocos días).
+  let ids: string[] | undefined;
+  if (q) {
+    const candidatos = await db.cv.findMany({
+      where: filtros,
+      orderBy: { creadoEn: "desc" },
+      select: { id: true, nombreCandidato: true, nombreArchivo: true, textoExtraido: true },
+    });
+    ids = candidatos
+      .filter((c) => [c.nombreCandidato, c.nombreArchivo, c.textoExtraido].some((t) => t && normalizarBusqueda(t).includes(q)))
+      .slice(0, LIMITE_REPOSITORIO)
+      .map((c) => c.id);
+  }
 
   const cvs = await db.cv.findMany({
-    where: {
-      ...(q
-        ? {
-            OR: [
-              { nombreCandidato: { contains: q } },
-              { nombreArchivo: { contains: q } },
-              { textoExtraido: { contains: q } },
-            ],
-          }
-        : {}),
-      ...(f.subidoPorId ? { subidoPorId: f.subidoPorId } : {}),
-      ...(desde || hasta ? { creadoEn: { ...(desde ? { gte: desde } : {}), ...(hasta ? { lte: hasta } : {}) } } : {}),
-      ...(f.vacanteId ? { analisis: { some: { vacanteId: f.vacanteId } } } : {}),
-    },
+    where: { ...filtros, ...(ids ? { id: { in: ids } } : {}) },
     orderBy: { creadoEn: "desc" },
-    take: 300,
+    take: LIMITE_REPOSITORIO,
     select: {
       id: true,
       nombreCandidato: true,

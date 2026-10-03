@@ -1,20 +1,35 @@
 "use client";
 
-import { useActionState } from "react";
-import { cambiarContrasenaAccion } from "@/lib/auth/acciones";
+import { startTransition, useActionState, useRef } from "react";
+import { cambiarContrasenaAccion, type EstadoFormulario } from "@/lib/auth/acciones";
 import { Aviso } from "./Aviso";
 import { ayuda, boton, campo, etiqueta } from "./estilos";
 
 export function FormularioContrasena({ textoBoton }: { textoBoton: string }) {
-  const [estado, accion, pendiente] = useActionState(cambiarContrasenaAccion, undefined);
+  const actual = useRef<HTMLInputElement>(null);
+  const [estado, accion, pendiente] = useActionState(async (previo: EstadoFormulario, datos: FormData) => {
+    const r = await cambiarContrasenaAccion(previo, datos);
+    // Tras un error se conserva la nueva contraseña; la actual se vacía por seguridad.
+    if (r?.error && actual.current) actual.current.value = "";
+    return r;
+  }, undefined);
   return (
-    <form action={accion} className="space-y-4">
+    <form
+      action={accion}
+      // Envío manual: React no vacía el formulario tras un error.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const datos = new FormData(e.currentTarget);
+        startTransition(() => accion(datos));
+      }}
+      className="space-y-4"
+    >
       {estado?.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <div>
         <label htmlFor="actual" className={etiqueta}>
           Contraseña actual
         </label>
-        <input id="actual" name="actual" type="password" autoComplete="current-password" required className={campo} />
+        <input ref={actual} id="actual" name="actual" type="password" autoComplete="current-password" required className={campo} />
       </div>
       <div>
         <label htmlFor="nueva" className={etiqueta}>

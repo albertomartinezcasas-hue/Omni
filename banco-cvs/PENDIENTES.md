@@ -358,3 +358,22 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - Corregido (Baja): solo el resultado vigente de cada CV y vacante puede «expirar».
   - **Baja**: vigilar el porcentaje de ajustes con motivo «Otro».
 - **ux-ui-reviewer: APROBADO CON AJUSTES** (ronda 2, sin hallazgos Alta). Todos sus hallazgos están corregidos.
+
+## Auditoría funcional previa a producción
+
+### Ronda 1 (auditor: 55 pasos aprobados, 8 hallazgos) → corregida por el implementador
+
+- Corregido (Alta): `STORAGE_DIR` explícita para la app, la purga y el respaldo. El barrido de huérfanos solo borra si al menos un archivo del disco corresponde a un CV de la base.
+- Corregido (Media): la búsqueda del repositorio ignora acentos y mayúsculas.
+- Corregido (Media): una fecha inválida en la URL se ignora (helper `fechaDeFiltro`).
+- Corregido (Media): el historial queda explícitamente congelado al analizar («Categoría final (al analizar o por ajuste)»), con una nota sobre los umbrales.
+- Corregido (Media): los ajustes cuentan sobre todos los registros del periodo.
+- Corregido (Baja):
+  - el inicio de sesión y el cambio de contraseña conservan los campos tras un error;
+  - «Reintentar» solo aparece en errores transitorios;
+  - mensaje de plazo vencido;
+  - umbral de «texto legible» (100 caracteres y 15 palabras);
+  - modelo de IA legible;
+  - el CSV muestra solo la fecha en los registros con seudónimo;
+  - aviso «Desliza…» en móvil.
+- **Baja (no se corrige)**: las páginas «no encontrado» dentro de la app responden HTTP 200. Con el streaming de `loading.tsx` ya no se puede cambiar el código; Next agrega `noindex`.

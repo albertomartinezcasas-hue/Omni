@@ -26,6 +26,7 @@ execFileSync("npx", ["prisma", "migrate", "deploy"], {
 });
 process.on("exit", () => rmSync(temporal, { recursive: true, force: true }));
 process.chdir(temporal); // storage/ temporal
+delete process.env.STORAGE_DIR; // aunque .env defina otra carpeta, se usa la temporal
 
 const { db } = await import("@/lib/db");
 const { crearVacante } = await import("@/lib/vacantes/servicio");

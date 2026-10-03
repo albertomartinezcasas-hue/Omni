@@ -5,11 +5,14 @@ import { subirCv } from "@/lib/archivos/servicio";
 import {
   consultarActores,
   consultarAnalisis,
+  consultarBitacora,
+  consultarHistorial,
   consultarCandidatos,
   consultarRepositorio,
   consultarUmbralesAdmin,
 } from "@/lib/consultas";
 import { db } from "@/lib/db";
+import { fechaDeFiltro } from "@/lib/fechas";
 import { crearPdf, crearUsuario, simularSesion, textoCv } from "./ayuda";
 
 type Usuario = Awaited<ReturnType<typeof crearUsuario>>;
@@ -120,6 +123,23 @@ describe("Búsqueda y filtros del repositorio", () => {
     expect((await consultarRepositorio({ q: "tableau" })).map((c) => c.nombreCandidato)).toEqual(["Dario Ficticio"]);
   });
 
+  it("ignora acentos y mayúsculas en el nombre, el archivo y el texto del CV", async () => {
+    await simularSesion(reclutadora);
+    const r = await subirCv(reclutadora, {
+      nombreArchivo: "CV Núñez.pdf",
+      contenido: crearPdf([...textoCv("HÉCTOR NÚÑEZ", "hector@correo-ficticio.mx"), "Certificación en Análisis Estadístico."]),
+      forzar: true,
+    });
+    if (r.estado !== "GUARDADO") throw new Error();
+    await db.cv.update({ where: { id: r.id }, data: { nombreCandidato: "HÉCTOR NÚÑEZ" } });
+    for (const q of ["héctor", "HECTOR", "núñez", "NUNEZ", "estadistico"]) {
+      expect((await consultarRepositorio({ q })).map((c) => c.id), q).toEqual([r.id]);
+    }
+    await db.cv.update({ where: { id: r.id }, data: { nombreCandidato: null, textoExtraido: "sin coincidencias" } });
+    expect((await consultarRepositorio({ q: "nunez" })).map((c) => c.id)).toEqual([r.id]); // por nombre de archivo
+    await db.cv.delete({ where: { id: r.id } });
+  });
+
   it("filtra por vacante y categoría, por persona que subió y por fecha de carga", async () => {
     await simularSesion(reclutadora);
     const excelentes = await consultarRepositorio({ vacanteId, categoria: "EXCELENTE" });
@@ -128,6 +148,24 @@ describe("Búsqueda y filtros del repositorio", () => {
     expect(deOtra.map((c) => c.nombreCandidato).sort()).toEqual(["Carla Ficticia", "Dario Ficticio"]);
     const manana = new Date(Date.now() + 86_400_000 * 2).toISOString().slice(0, 10);
     expect(await consultarRepositorio({ desde: manana })).toEqual([]);
+  });
+});
+
+describe("Fechas inválidas en los filtros", () => {
+  it("el helper solo acepta fechas reales", () => {
+    expect(fechaDeFiltro("2026-03-15", false)?.toISOString()).toBe("2026-03-15T06:00:00.000Z");
+    expect(fechaDeFiltro("2026-03-15", true)?.toISOString()).toBe("2026-03-16T05:59:59.999Z");
+    for (const mala of ["2026-13-45", "2026-99-99", "2026-02-31", "2026-00-10", "ayer", "", undefined]) {
+      expect(fechaDeFiltro(mala, false)).toBeUndefined();
+    }
+  });
+
+  it("repositorio, bitácora e historial ignoran la fecha inválida en lugar de fallar", async () => {
+    await simularSesion(admin);
+    const todos = await consultarRepositorio({});
+    expect(await consultarRepositorio({ desde: "2026-13-45" })).toHaveLength(todos.length);
+    await expect(consultarBitacora({ desde: "2026-13-45", hasta: "2026-99-99" })).resolves.toBeInstanceOf(Array);
+    await expect(consultarHistorial({ hasta: "2026-99-99" })).resolves.toHaveProperty("resumen");
   });
 });
 

@@ -8,6 +8,7 @@ import { boton, celda, celdaEncabezado, tabla, tarjeta, tarjetaTabla } from "@/c
 import { formatearFecha } from "@/components/Fecha";
 import { FormularioAjuste } from "@/components/FormularioAjuste";
 import { describirMeses } from "@/lib/analizador/fechas";
+import { describirModelo } from "@/lib/analizador/proveedores";
 import { ETIQUETA_TIPO_PUESTO } from "@/lib/analizador/tipos";
 import { ETIQUETA_CATEGORIA, ETIQUETA_ESTUDIO, ETIQUETA_IDIOMA, type Categoria, type NivelEstudio } from "@/lib/catalogos";
 import { consultarAnalisis } from "@/lib/consultas";
@@ -151,7 +152,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           ))}
         </dl>
         <p className="text-xs text-slate-600">
-          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)} con el modelo {a.modelo}. Umbrales vigentes:
+          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)}. {describirModelo(a.modelo)}. Umbrales vigentes:
           Excelente ≥ {a.umbrales.excelente}, Bueno ≥ {a.umbrales.bueno}, Pasable ≥ {a.umbrales.pasable}.
         </p>
       </section>

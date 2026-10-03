@@ -1,10 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { utimesSync, writeFileSync } from "node:fs";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { analizarCvAccion } from "@/acciones/analisis";
 import { marcarOposicionIAAccion } from "@/acciones/cvs";
-import { diasDeConservacion, purgarCvsVencidos } from "@/lib/archivos/conservacion";
+import { barrerHuerfanos, diasDeConservacion, purgarCvsVencidos, tiempoRestante } from "@/lib/archivos/conservacion";
 import { directorioAlmacenamiento } from "@/lib/archivos/almacenamiento";
 import { subirCv } from "@/lib/archivos/servicio";
 import { db } from "@/lib/db";
@@ -79,6 +80,16 @@ describe("Plazo de conservación", () => {
   });
 });
 
+describe("Tiempo restante de un pendiente de revisión", () => {
+  it("avisa las horas que faltan y, si el plazo ya venció, que se eliminará en la próxima revisión", () => {
+    const ahora = Date.now();
+    expect(tiempoRestante(new Date(ahora + 5.5 * HORA), ahora)).toBe("Expira en 5 h si no se revisa");
+    expect(tiempoRestante(new Date(ahora + 0.5 * HORA), ahora)).toBe("Expira en menos de 1 h: revísalo ya");
+    expect(tiempoRestante(new Date(ahora - 2 * HORA), ahora)).toBe("Se eliminará en la próxima revisión automática");
+    expect(tiempoRestante(new Date(ahora), ahora)).toBe("Se eliminará en la próxima revisión automática");
+  });
+});
+
 describe("Archivos huérfanos", () => {
   it("borra de storage/ los archivos sin CV con más de 1 hora; respeta los recientes", async () => {
     await cvDePrueba("Ancla"); // asegura que exista storage/
@@ -91,6 +102,52 @@ describe("Archivos huérfanos", () => {
     await purgarCvsVencidos(new Date(), 30);
     expect(existsSync(huerfano)).toBe(false);
     expect(existsSync(reciente)).toBe(true);
+  });
+});
+
+describe("Carpeta de CVs (STORAGE_DIR)", () => {
+  it("por defecto es ./storage; acepta una ruta absoluta o relativa a la carpeta de ejecución", () => {
+    expect(directorioAlmacenamiento({})).toBe(path.join(process.cwd(), "storage"));
+    expect(directorioAlmacenamiento({ STORAGE_DIR: "  " })).toBe(path.join(process.cwd(), "storage"));
+    expect(directorioAlmacenamiento({ STORAGE_DIR: "/srv/cvs" })).toBe(path.resolve("/srv/cvs"));
+    expect(directorioAlmacenamiento({ STORAGE_DIR: "otra/carpeta" })).toBe(path.join(process.cwd(), "otra", "carpeta"));
+  });
+
+  it("el barrido no borra nada si ningún archivo del disco corresponde a un CV de la base", async () => {
+    await cvDePrueba("BaseConDatos"); // la base tiene CVs, pero ninguno vive en la otra carpeta
+    const otra = mkdtempSync(path.join(tmpdir(), "banco-cvs-otra-storage-"));
+    const ajeno = path.join(otra, "00000000-0000-4000-8000-0000000000aa");
+    writeFileSync(ajeno, "x");
+    const haceUnDia = new Date(Date.now() - 24 * HORA);
+    utimesSync(ajeno, haceUnDia, haceUnDia);
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.STORAGE_DIR = otra;
+    try {
+      expect(await barrerHuerfanos(new Date())).toBe(0);
+      await purgarCvsVencidos(new Date(), 30);
+    } finally {
+      delete process.env.STORAGE_DIR;
+    }
+    expect(existsSync(ajeno)).toBe(true);
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining("no se barrieron"));
+  });
+
+  it("si al menos un archivo coincide con la base, sí barre los huérfanos de esa carpeta", async () => {
+    const otra = mkdtempSync(path.join(tmpdir(), "banco-cvs-misma-storage-"));
+    process.env.STORAGE_DIR = otra;
+    try {
+      const cv = await cvDePrueba("EnOtraCarpeta");
+      expect(existsSync(path.join(otra, cv.archivoId))).toBe(true);
+      const huerfano = path.join(otra, "00000000-0000-4000-8000-0000000000bb");
+      writeFileSync(huerfano, "x");
+      const haceDosHoras = new Date(Date.now() - 2 * HORA);
+      utimesSync(huerfano, haceDosHoras, haceDosHoras);
+      expect(await barrerHuerfanos(new Date())).toBe(1);
+      expect(existsSync(huerfano)).toBe(false);
+      expect(existsSync(path.join(otra, cv.archivoId))).toBe(true);
+    } finally {
+      delete process.env.STORAGE_DIR;
+    }
   });
 });
 

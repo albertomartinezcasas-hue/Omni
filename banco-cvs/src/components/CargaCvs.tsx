@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { analizarCvAccion } from "@/acciones/analisis";
 import type { CvDuplicado, ResultadoCarga } from "@/lib/archivos/servicio";
+import { errorTransitorio } from "@/lib/errores";
 import { ayuda, boton, campo, celda, celdaEncabezado, etiqueta, tabla, tarjeta, tarjetaTabla } from "./estilos";
 import { formatearFecha } from "./Fecha";
 
@@ -19,7 +20,8 @@ type Estado =
   | { tipo: "SIN_IA"; cvId: string; heredada: boolean }
   | { tipo: "DUPLICADO"; duplicados: CvDuplicado[] }
   | { tipo: "CANCELADO" }
-  | { tipo: "ERROR"; motivo: string; cvId?: string };
+  // reintentable: false si reintentar no cambia nada (formato, tamaño, archivo vacío o dañado).
+  | { tipo: "ERROR"; motivo: string; cvId?: string; reintentable: boolean };
 
 type Fila = { clave: string; archivo: File; estado: Estado; vacante: { id: string; titulo: string } | null };
 type Tarea = { clave: string; forzar: boolean; cvId?: string };
@@ -51,7 +53,7 @@ async function subir(
   forzar: boolean,
   sinAnalisisIA: boolean,
 ): Promise<Estado | { tipo: "SUBIDO"; cvId: string; sinTexto: boolean; sinAnalisisIA: boolean }> {
-  if (archivo.size > TAMANO_MAXIMO) return { tipo: "ERROR", motivo: "El archivo supera 10 MB." };
+  if (archivo.size > TAMANO_MAXIMO) return { tipo: "ERROR", motivo: "El archivo supera 10 MB.", reintentable: false };
   const datos = new FormData();
   datos.append("archivo", archivo);
   if (forzar) datos.append("forzar", "1");
@@ -59,14 +61,20 @@ async function subir(
   try {
     const respuesta = await fetch("/api/cvs", { method: "POST", body: datos });
     const cuerpo = (await respuesta.json().catch(() => ({}))) as ResultadoCarga | { estado?: undefined; error?: string };
-    if (respuesta.status === 401) return { tipo: "ERROR", motivo: "Tu sesión expiró. Vuelve a iniciar sesión." };
+    if (respuesta.status === 401) {
+      return { tipo: "ERROR", motivo: "Tu sesión expiró. Inicia sesión en otra pestaña y usa «Reintentar».", reintentable: true };
+    }
     if (cuerpo.estado === "GUARDADO") {
       return { tipo: "SUBIDO", cvId: cuerpo.id, sinTexto: cuerpo.sinTexto, sinAnalisisIA: cuerpo.sinAnalisisIA };
     }
     if (cuerpo.estado === "DUPLICADO") return { tipo: "DUPLICADO", duplicados: cuerpo.duplicados };
-    return { tipo: "ERROR", motivo: ("error" in cuerpo && cuerpo.error) || "No se pudo subir el archivo." };
+    return {
+      tipo: "ERROR",
+      motivo: ("error" in cuerpo && cuerpo.error) || "No se pudo subir el archivo.",
+      reintentable: errorTransitorio(respuesta.status),
+    };
   } catch {
-    return { tipo: "ERROR", motivo: "Sin conexión con el servidor." };
+    return { tipo: "ERROR", motivo: "Sin conexión con el servidor.", reintentable: true };
   }
 }
 
@@ -118,9 +126,10 @@ export function CargaCvs({
     actualizar(tarea.clave, { tipo: "PROCESANDO", paso: "Analizando" });
     try {
       const r = await analizarCvAccion(cvId, vacante);
-      actualizar(tarea.clave, r.ok ? { tipo: "LISTO", cvId, analisisId: r.datos.id } : { tipo: "ERROR", motivo: r.error, cvId });
+      // Los errores del análisis (IA saturada, sin respuesta, sesión) se pueden reintentar sin volver a subir el archivo.
+      actualizar(tarea.clave, r.ok ? { tipo: "LISTO", cvId, analisisId: r.datos.id } : { tipo: "ERROR", motivo: r.error, cvId, reintentable: true });
     } catch {
-      actualizar(tarea.clave, { tipo: "ERROR", motivo: "Sin conexión con el servidor.", cvId });
+      actualizar(tarea.clave, { tipo: "ERROR", motivo: "Sin conexión con el servidor.", cvId, reintentable: true });
     }
   }
 
@@ -356,9 +365,13 @@ function DetalleFila({
       return (
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-red-800">{estado.motivo}</span>
-          <button type="button" className={boton.secundario} onClick={() => reintentar({ clave, forzar: false, cvId: estado.cvId })}>
-            Reintentar
-          </button>
+          {estado.reintentable ? (
+            <button type="button" className={boton.secundario} onClick={() => reintentar({ clave, forzar: false, cvId: estado.cvId })}>
+              Reintentar
+            </button>
+          ) : (
+            <span className="text-slate-700">Revisa el archivo y vuelve a seleccionarlo.</span>
+          )}
         </div>
       );
     default:

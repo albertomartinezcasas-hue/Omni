@@ -81,6 +81,11 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
             Cuántos CVs se analizaron y cómo se clasificaron, por área y vacante. Se conserva aunque los CVs se eliminen
             por el plazo de conservación, y no guarda datos de los candidatos.
           </p>
+          <p className="mt-1 text-sm text-slate-700">
+            <span className="font-semibold">Es un registro de auditoría:</span> cada análisis guarda la categoría con los
+            umbrales vigentes al analizar (o la del ajuste manual). Cambiar los umbrales no modifica el historial, así que
+            puede no coincidir con la vista por vacante.
+          </p>
         </div>
         <div className="text-right">
           <a href={`/api/historial${consulta ? `?${consulta}` : ""}`} className={boton.secundario}>Descargar CSV</a>
@@ -130,7 +135,7 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
               <Dato etiqueta="CVs analizados" valor={total.cvs} />
               <Dato etiqueta="Resultados (CV × vacante)" valor={total.resultados} />
               <Dato etiqueta="Análisis realizados (incluye re-análisis)" valor={total.analisis} />
-              <Dato etiqueta="Categorías ajustadas a mano" valor={resumen.ajustadas} />
+              <Dato etiqueta="Categorías ajustadas a mano (incluye re-analizados)" valor={resumen.ajustadas} />
             </dl>
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Por categoría ({total.resultados} resultados)</h3>
@@ -197,8 +202,9 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
           <TablaSegmentos id="tabla-vacante" titulo="Por vacante" filas={resumen.porVacante} conArea />
           <p className="text-xs text-slate-600">
             «CVs» cuenta cada CV una vez por segmento. «Resultados» es uno por CV y vacante; las categorías suman ese
-            número y usan el análisis más reciente de cada CV en cada vacante dentro del periodo filtrado, con los
-            ajustes manuales. Un mismo candidato subido de nuevo después de eliminarse cuenta como otro CV. Los análisis
+            número y usan la categoría final (al analizar o por ajuste) del análisis más reciente de cada CV en cada
+            vacante dentro del periodo filtrado. Los ajustes manuales, sus motivos y los cambios de categoría cuentan
+            todos los del periodo, aunque el CV se haya re-analizado después. Un mismo candidato subido de nuevo después de eliminarse cuenta como otro CV. Los análisis
             anteriores a este historial usan los umbrales vigentes al instalarlo.
           </p>
         </>

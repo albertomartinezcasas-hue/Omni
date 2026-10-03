@@ -1,14 +1,30 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useRef } from "react";
 import { Aviso } from "@/components/Aviso";
 import { boton, campo, etiqueta } from "@/components/estilos";
-import { iniciarSesionAccion } from "@/lib/auth/acciones";
+import { iniciarSesionAccion, type EstadoFormulario } from "@/lib/auth/acciones";
 
 export function FormularioLogin() {
-  const [estado, accion, pendiente] = useActionState(iniciarSesionAccion, undefined);
+  const contrasena = useRef<HTMLInputElement>(null);
+  const [estado, accion, pendiente] = useActionState(async (previo: EstadoFormulario, datos: FormData) => {
+    const r = await iniciarSesionAccion(previo, datos);
+    // Tras un error se conserva el correo; la contraseña se vacía por seguridad.
+    if (r?.error && contrasena.current) contrasena.current.value = "";
+    return r;
+  }, undefined);
   return (
-    <form action={accion} className="space-y-4" noValidate>
+    <form
+      action={accion}
+      // Envío manual: React no vacía el formulario tras un error.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const datos = new FormData(e.currentTarget);
+        startTransition(() => accion(datos));
+      }}
+      className="space-y-4"
+      noValidate
+    >
       {estado?.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <div>
         <label htmlFor="correo" className={etiqueta}>
@@ -21,6 +37,7 @@ export function FormularioLogin() {
           Contraseña
         </label>
         <input
+          ref={contrasena}
           id="contrasena"
           name="contrasena"
           type="password"

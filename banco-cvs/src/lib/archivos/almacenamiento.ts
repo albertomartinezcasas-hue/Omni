@@ -4,15 +4,19 @@ import path from "node:path";
 
 const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** Carpeta privada (fuera de /public). Nunca se sirve de forma estática. */
-export function directorioAlmacenamiento() {
-  return path.join(process.cwd(), "storage");
+/**
+ * Carpeta privada (fuera de /public). Nunca se sirve de forma estática.
+ * STORAGE_DIR (opcional) la cambia: ruta absoluta o relativa a la carpeta de ejecución. Por defecto, ./storage.
+ */
+export function directorioAlmacenamiento(env: Record<string, string | undefined> = process.env) {
+  // turbopackIgnore: la carpeta se decide al ejecutar; no debe incluir el proyecto en el rastreo de archivos del build.
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.STORAGE_DIR?.trim() || "storage");
 }
 
 function rutaDe(archivoId: string) {
   // La ruta solo se arma con un UUID validado: no hay forma de salir de la carpeta.
   if (!REGEX_UUID.test(archivoId)) throw new Error("Identificador de archivo no válido");
-  return path.join(directorioAlmacenamiento(), archivoId);
+  return path.join(/*turbopackIgnore: true*/ directorioAlmacenamiento(), archivoId);
 }
 
 export async function guardarArchivo(buf: Buffer) {

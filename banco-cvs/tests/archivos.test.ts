@@ -2,7 +2,9 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { POST as subir } from "@/app/api/cvs/route";
+import { esTextoLegible } from "@/lib/archivos/extraer";
 import { detectarTipo } from "@/lib/archivos/firma";
+import { errorTransitorio } from "@/lib/errores";
 import { subirCv } from "@/lib/archivos/servicio";
 import { db } from "@/lib/db";
 import { crearDocx, crearPdf, crearUsuario, crearZip, simularSesion, textoCv } from "./ayuda";
@@ -73,7 +75,23 @@ describe("Validación y almacenamiento de archivos", () => {
     expect(archivos.some((a) => a.includes("Laura"))).toBe(false);
   });
 
-  it("marca 'Sin texto legible' si hay menos de 200 caracteres", async () => {
+  it("un CV breve con texto real es legible; un escaneo con marca de agua o números sueltos no", async () => {
+    const breve = [
+      "Juan Pérez Ficticio",
+      "Correo: juan@correo-ficticio.mx · Tel. 55 1234 5678",
+      "Experiencia: Cajero en Tienda Ficticia (2023 - 2025).",
+      "Estudios: Bachillerato. Disponibilidad inmediata.",
+    ];
+    expect(esTextoLegible(breve.join("\n"))).toBe(true);
+    const r = await subirCv(usuario, { nombreArchivo: "breve.pdf", contenido: crearPdf(breve), forzar: true });
+    expect(r).toMatchObject({ estado: "GUARDADO", sinTexto: false });
+
+    expect(esTextoLegible("Escaneado con CamScanner\n1\n2")).toBe(false);
+    expect(esTextoLegible("0123456789 ".repeat(20))).toBe(false); // muchos caracteres, ninguna palabra
+    expect(esTextoLegible("Hoja escaneada\n[TEXTO OCULTO OMITIDO: 5000 caracteres en letra diminuta]")).toBe(false);
+  });
+
+  it("marca 'Sin texto legible' si casi no hay texto", async () => {
     const r = await subirCv(usuario, { nombreArchivo: "escaneado.pdf", contenido: crearPdf(["Hoja escaneada"]), forzar: false });
     expect(r.estado).toBe("GUARDADO");
     if (r.estado !== "GUARDADO") return;
@@ -112,6 +130,13 @@ describe("Validación y almacenamiento de archivos", () => {
     expect(cuerpo.estado).toBe("DUPLICADO");
     expect(cuerpo.duplicados[0].nombre).toBe("sofia.pdf");
     expect((await subir(peticion(crearPdf(texto), "sofia-copia.pdf", { forzar: "1" }))).status).toBe(201);
+  });
+});
+
+describe("Errores de carga: permanentes y transitorios", () => {
+  it("solo se ofrece «Reintentar» si el error puede cambiar al reintentar", () => {
+    for (const permanente of [400, 403, 413]) expect(errorTransitorio(permanente)).toBe(false);
+    for (const transitorio of [401, 408, 429, 500, 502, 503]) expect(errorTransitorio(transitorio)).toBe(true);
   });
 });
 

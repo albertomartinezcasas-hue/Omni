@@ -5,6 +5,9 @@ import type { ClienteDb } from "@/lib/db";
 // volver a ligar su historial con el candidato. La bitácora (solo inserción) nunca guarda datos del candidato:
 // solo ids, y el nombre se consulta mientras el CV exista.
 
+/** Prefijo del id de CV en el historial cuando el CV ya se eliminó. */
+export const PREFIJO_SEUDONIMO = "seudonimo-";
+
 /** Inicio del día en hora de CDMX: quita la hora exacta, que permitiría cruzar el registro con la bitácora. */
 export function inicioDelDiaCdmx(fecha: Date) {
   const dia = fecha.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" }); // AAAA-MM-DD
@@ -19,7 +22,7 @@ export function inicioDelDiaCdmx(fecha: Date) {
  */
 export async function olvidarCvs(tx: ClienteDb, cvIds: string[], motivo: "PLAZO" | "MANUAL") {
   for (const cvId of cvIds) {
-    const seudonimo = `seudonimo-${randomUUID()}`;
+    const seudonimo = `${PREFIJO_SEUDONIMO}${randomUUID()}`;
     const registros = await tx.registroAnalisis.findMany({
       where: { cvId },
       select: { id: true, fecha: true, fechaAjuste: true, categoriaFinal: true, vacanteId: true },

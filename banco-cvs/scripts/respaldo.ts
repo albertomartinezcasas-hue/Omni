@@ -5,6 +5,7 @@
 // (RESPALDO_DIAS lo cambia), para no guardar CVs más tiempo del que promete el aviso de privacidad.
 import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { directorioAlmacenamiento } from "../src/lib/archivos/almacenamiento";
 import { diasDeConservacion } from "../src/lib/archivos/conservacion";
 import { db } from "../src/lib/db";
 
@@ -27,7 +28,7 @@ async function principal() {
   await db.$executeRawUnsafe(`VACUUM INTO '${archivoDb}'`);
   await db.$disconnect();
 
-  const storage = path.resolve("storage");
+  const storage = directorioAlmacenamiento(); // STORAGE_DIR o ./storage, igual que la app
   try {
     await cp(storage, path.join(carpeta, "storage"), { recursive: true });
   } catch (error) {

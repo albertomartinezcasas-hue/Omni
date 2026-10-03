@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { esModeloLigero, proveedoresConfigurados } from "@/lib/analizador/proveedores";
+import { describirModelo, esModeloLigero, proveedoresConfigurados } from "@/lib/analizador/proveedores";
 
 // SDK de OpenAI simulado: el comportamiento depende de "baseURL|modelo" o, si no está, de la baseURL.
 const comportamiento = new Map<string, () => unknown>();
@@ -194,6 +194,14 @@ describe("Respaldo entre proveedores", () => {
     delete process.env.GEMINI_API_KEY;
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(solicitarExtraccion("s", "cv")).rejects.toThrow("El análisis automático no está disponible por ahora. Avisa a un Admin.");
+  });
+});
+
+describe("Modelo legible en la página del análisis", () => {
+  it("separa el servicio y el modelo sin cambiar el valor guardado", () => {
+    expect(describirModelo("groq:openai/gpt-oss-120b")).toBe("Servicio de IA: groq (modelo openai/gpt-oss-120b)");
+    expect(describirModelo("openai:gpt-oss:20b")).toBe("Servicio de IA: openai (modelo gpt-oss:20b)");
+    expect(describirModelo("prueba")).toBe("Modelo de IA: prueba");
   });
 });
 

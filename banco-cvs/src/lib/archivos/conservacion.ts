@@ -29,6 +29,15 @@ export function fechaDeEliminacion(ultimaActividad: Date, dias: number) {
   return new Date(ultimaActividad.getTime() + dias * DIA_MS);
 }
 
+/** «Expira en X h» para los pendientes de revisión: el CV se elimina por el plazo de conservación. */
+export function tiempoRestante(seElimina: Date, ahora: number = Date.now()) {
+  const horas = (seElimina.getTime() - ahora) / 3_600_000;
+  // Ya venció: la purga corre cada hora, así que se eliminará en la siguiente vuelta.
+  if (horas <= 0) return "Se eliminará en la próxima revisión automática";
+  if (horas <= 1) return "Expira en menos de 1 h: revísalo ya";
+  return `Expira en ${Math.floor(horas)} h si no se revisa`;
+}
+
 /**
  * Elimina los CVs vencidos y sus archivos. Devuelve cuántos eliminó.
  * La bitácora registra la cantidad y los ids (no son datos personales): ni nombres de candidatos ni de archivos.
@@ -82,27 +91,42 @@ export async function purgarCvsVencidos(ahora: Date = new Date(), dias: number |
   return eliminados.length;
 }
 
-/** Borra de storage/ los archivos que ya no tienen un CV en la base de datos. */
-async function barrerHuerfanos(ahora: Date) {
+/**
+ * Borra de storage/ los archivos que ya no tienen un CV en la base de datos.
+ * Solo barre si al menos un archivo del disco corresponde a un CV de la base: es la prueba de que la carpeta y la
+ * base son las mismas. Si no coincide ninguno (p. ej. otro DATABASE_URL u otra STORAGE_DIR), no se borra nada.
+ */
+export async function barrerHuerfanos(ahora: Date = new Date()) {
+  const directorio = directorioAlmacenamiento();
   let nombres: string[];
   try {
-    nombres = await readdir(directorioAlmacenamiento());
+    nombres = await readdir(directorio);
   } catch {
-    return; // aún no existe storage/
+    return 0; // aún no existe storage/
   }
+  if (nombres.length === 0) return 0;
   const existentes = new Set((await db.cv.findMany({ select: { archivoId: true } })).map((c) => c.archivoId));
-  // Base vacía con archivos en disco: probablemente DATABASE_URL apunta a otra base. No se barre nada.
-  if (existentes.size === 0) return;
-  for (const nombre of nombres) {
-    if (existentes.has(nombre)) continue;
+  const huerfanos = nombres.filter((nombre) => !existentes.has(nombre));
+  if (huerfanos.length === 0) return 0;
+  if (huerfanos.length === nombres.length) {
+    console.warn(
+      "[conservacion] Ningún archivo de la carpeta de CVs corresponde a un CV de la base de datos: no se barrieron " +
+        "huérfanos. Revisa que DATABASE_URL y STORAGE_DIR apunten a la misma instalación.",
+    );
+    return 0;
+  }
+  let borrados = 0;
+  for (const nombre of huerfanos) {
     try {
-      const info = await stat(path.join(directorioAlmacenamiento(), nombre));
+      const info = await stat(path.join(directorio, nombre));
       if (ahora.getTime() - info.mtimeMs < GRACIA_HUERFANOS_MS) continue;
       await eliminarArchivo(nombre); // solo acepta nombres UUID: nada fuera de los CVs
+      borrados += 1;
     } catch {
       // Nombre que no es un UUID o error de disco: se ignora.
     }
   }
+  return borrados;
 }
 
 let iniciada = false;

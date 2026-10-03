@@ -5,7 +5,7 @@ Banco de CVs corre en un solo servidor: Node.js 22 y SQLite, detrás de un proxy
 | Carpeta | Contenido | Respaldo |
 |---|---|---|
 | `data/` | Base de datos SQLite (`banco.db`) | Sí, con `npm run respaldo` |
-| `storage/` | Archivos de CVs (nombres UUID, nunca públicos) | Sí, va dentro del respaldo |
+| `storage/` (o `STORAGE_DIR`) | Archivos de CVs (nombres UUID, nunca públicos) | Sí, va dentro del respaldo |
 | `respaldos/` | Copias generadas por `npm run respaldo` | Fuera del servidor, si TI lo requiere |
 
 ## 1. Antes del primer despliegue (lista de verificación)
@@ -26,6 +26,7 @@ Se definen en el servidor, nunca en el repositorio. Parte de `.env.example`.
 | `AUTH_URL` | Sí | `https://cvs.empresa.mx` (https obligatorio, salvo en localhost) |
 | `ALLOWED_DOMAINS` | Sí | `empresa.mx` (dominios de correo permitidos, separados por coma) |
 | `DATABASE_URL` | No | `file:./data/banco.db` (valor por defecto) |
+| `STORAGE_DIR` | No | Carpeta de los archivos de CVs, absoluta o relativa a la carpeta de ejecución (por defecto `./storage`). La usan la app, `npm run purgar` y `npm run respaldo`; en una VM conviene una ruta absoluta para que no dependa de desde dónde se ejecutan |
 | `CONSERVACION_DIAS` | No | `1` (entero ≥ 1; días que se conservan los CVs) |
 | `IA_PROVEEDORES` | No | `groq,gemini` (orden de respaldo) |
 | `GROQ_API_KEY`, `GEMINI_API_KEY` | Para analizar | Sin ninguna clave, el repositorio funciona pero el análisis no |
@@ -113,6 +114,8 @@ Caddy obtiene y renueva el certificado solo. Con nginx, usa `client_max_body_siz
 | Respaldo | `npm run respaldo` por cron (Docker: `docker exec banco-cvs npm run respaldo`) | Diario |
 | Monitoreo | `GET /api/salud` → `{"ok":true}` | Cada minuto |
 
+La purga también borra los archivos que ya no tienen un CV en la base («huérfanos»). Solo lo hace si al menos un archivo de la carpeta de CVs corresponde a un CV de la base; si ninguno coincide (por ejemplo, `DATABASE_URL` o `STORAGE_DIR` apuntan a otra instalación), no borra nada y deja un aviso en el registro.
+
 Los respaldos contienen CVs. Por eso, por defecto se conservan el mismo plazo que los CVs (1 día). Si TI necesita respaldos más largos, ajusta `RESPALDO_DIAS` y declara ese plazo en el aviso de privacidad.
 
 ## 7. Actualizar a una versión nueva
@@ -124,7 +127,7 @@ Los respaldos contienen CVs. Por eso, por defecto se conservan el mismo plazo qu
 ## 8. Restaurar un respaldo
 
 1. Detén la app.
-2. Copia `respaldo-*/banco.db` a `data/banco.db` y `respaldo-*/storage/` a `storage/`.
+2. Copia `respaldo-*/banco.db` a `data/banco.db` y `respaldo-*/storage/` a `storage/` (o a la carpeta de `STORAGE_DIR`).
 3. Arranca la app.
 
 La purga borrará al arrancar los CVs que ya hayan vencido.

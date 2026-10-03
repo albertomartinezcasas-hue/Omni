@@ -8,6 +8,7 @@ import {
 } from "@/lib/analisis/consultas";
 import { listarCvs, obtenerCv } from "@/lib/archivos/servicio";
 import { db } from "@/lib/db";
+import { fechaDeFiltro } from "@/lib/fechas";
 import { opcionesDelHistorial, registrosDelHistorial, resumirHistorial, type FiltrosHistorial } from "@/lib/historial";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
 import { listarUsuarios } from "@/lib/usuarios/servicio";
@@ -44,10 +45,8 @@ export async function consultarBitacora(
   filtros: { accion?: string; actorId?: string; desde?: string; hasta?: string } = {},
 ) {
   await requerirRol("ADMIN");
-  const fecha = (v: string | undefined, fin: boolean) =>
-    v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T${fin ? "23:59:59.999" : "00:00:00.000"}-06:00`) : undefined;
-  const desde = fecha(filtros.desde, false);
-  const hasta = fecha(filtros.hasta, true);
+  const desde = fechaDeFiltro(filtros.desde, false);
+  const hasta = fechaDeFiltro(filtros.hasta, true);
   const eventos = await db.eventoBitacora.findMany({
     where: {
       ...(filtros.accion ? { accion: filtros.accion } : {}),

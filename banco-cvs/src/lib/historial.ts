@@ -1,7 +1,9 @@
 // Historial de análisis (estadística y auditoría). Lee solo RegistroAnalisis: sin datos de candidatos.
 import { esModeloLigero } from "@/lib/analizador/proveedores";
+import { PREFIJO_SEUDONIMO } from "@/lib/archivos/olvido";
 import { CATEGORIAS, ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, type Categoria, type MotivoAjuste } from "@/lib/catalogos";
 import { db } from "@/lib/db";
+import { fechaDeFiltro } from "@/lib/fechas";
 
 export type FiltrosHistorial = { desde?: string; hasta?: string; area?: string; vacanteId?: string };
 
@@ -12,7 +14,7 @@ export type Segmento = {
   etiqueta: string;
   /** CVs distintos en el segmento. */
   cvs: number;
-  /** Resultados vigentes (uno por CV y vacante). Las categorías suman este número. */
+  /** Resultados vigentes (el análisis más reciente por CV y vacante). Las categorías suman este número. */
   resultados: number;
   /** Análisis realizados, incluidos los re-análisis. */
   analisis: number;
@@ -22,14 +24,10 @@ export type Segmento = {
 const conteoVacio = (): Conteo => Object.fromEntries(CATEGORIAS.map((c) => [c, 0])) as Conteo;
 const comoCategoria = (c: string): Categoria => ((CATEGORIAS as readonly string[]).includes(c) ? (c as Categoria) : "NO_VIABLE");
 
-/** Fechas del filtro en hora de CDMX (igual que la bitácora). */
-function fecha(v: string | undefined, fin: boolean) {
-  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T${fin ? "23:59:59.999" : "00:00:00.000"}-06:00`) : undefined;
-}
-
 function filtroWhere(f: FiltrosHistorial) {
-  const desde = fecha(f.desde, false);
-  const hasta = fecha(f.hasta, true);
+  // Fechas del filtro en hora de CDMX (igual que la bitácora); una fecha inválida se ignora.
+  const desde = fechaDeFiltro(f.desde, false);
+  const hasta = fechaDeFiltro(f.hasta, true);
   return {
     ...(f.area ? { area: f.area } : {}),
     ...(f.vacanteId ? { vacanteId: f.vacanteId } : {}),
@@ -52,6 +50,10 @@ const nuevoSegmento = (clave: string, etiqueta: string): Acumulado => ({
  * Resumen segmentado por número de CVs, área y categoría.
  * La categoría de cada CV es la de su análisis más reciente contra cada vacante dentro del periodo filtrado
  * (resultado vigente, con ajustes); los re-análisis cuentan en «análisis realizados», no duplican al CV.
+ * Los ajustes manuales (cantidad, motivos, cambios y tiempos de revisión) se cuentan sobre TODOS los registros del
+ * periodo: re-analizar un CV no borra del resumen un ajuste que ya se hizo.
+ * El historial es de auditoría: cada registro congela la categoría con los umbrales vigentes al analizar (o la del
+ * ajuste manual); cambiar los umbrales después no lo recalcula.
  */
 export function resumirHistorial(registros: Registro[]) {
   const vigentes = new Map<string, Registro>();
@@ -79,11 +81,21 @@ export function resumirHistorial(registros: Registro[]) {
     if (r.posibleManipulacion) conManipulacion += 1;
   }
 
-  // Ajustes manuales: de qué categoría a cuál, y cuánto tardó en resolverse un «Pendiente de revisión».
+  // Ajustes manuales (todos los del periodo): de qué categoría a cuál, y cuánto tardó en resolverse un «Pendiente de revisión».
   const cambios = new Map<string, number>();
   const motivos = new Map<string, number>();
   const horasRevision: number[] = [];
   let ajustadas = 0;
+  for (const r of registros) {
+    if (!r.ajustada) continue;
+    ajustadas += 1;
+    const clave = `${comoCategoria(r.categoria)}>${comoCategoria(r.categoriaFinal)}`;
+    cambios.set(clave, (cambios.get(clave) ?? 0) + 1);
+    if (r.motivoAjuste) motivos.set(r.motivoAjuste, (motivos.get(r.motivoAjuste) ?? 0) + 1);
+    if (r.categoria === "REVISION" && r.horasHastaAjuste !== null) horasRevision.push(r.horasHastaAjuste);
+  }
+
+  // Categorías por CV: solo el resultado vigente de cada CV y vacante.
   let expiradas = 0;
   let pendientes = 0;
   for (const r of vigentes.values()) {
@@ -97,18 +109,12 @@ export function resumirHistorial(registros: Registro[]) {
       if (r.expiroSinRevision) expiradas += 1;
       else pendientes += 1;
     }
-    if (r.ajustada) {
-      ajustadas += 1;
-      const clave = `${comoCategoria(r.categoria)}>${categoria}`;
-      cambios.set(clave, (cambios.get(clave) ?? 0) + 1);
-      if (r.motivoAjuste) motivos.set(r.motivoAjuste, (motivos.get(r.motivoAjuste) ?? 0) + 1);
-      if (r.categoria === "REVISION" && r.horasHastaAjuste !== null) horasRevision.push(r.horasHastaAjuste);
-    }
   }
 
   const cerrar = <T extends Acumulado>({ cvsIds, ...resto }: T) => ({ ...resto, cvs: cvsIds.size });
   return {
     total: cerrar(total),
+    /** Análisis con categoría ajustada a mano en el periodo (incluye los que después se re-analizaron). */
     ajustadas,
     conModeloLigero,
     conManipulacion,
@@ -146,6 +152,8 @@ export async function opcionesDelHistorial() {
 const VEREDICTO: Record<string, string> = { VIABLE: "Viable", NO_VIABLE: "No viable", REVISION: "Pendiente de revisión" };
 const fechaCdmx = (d: Date) =>
   d.toLocaleString("es-MX", { timeZone: "America/Mexico_City", dateStyle: "short", timeStyle: "short" });
+// Al eliminar el CV, las fechas se redondean al día: se muestra solo la fecha (sin una hora «12:00 a.m.» que no es real).
+const diaCdmx = (d: Date) => d.toLocaleDateString("es-MX", { timeZone: "America/Mexico_City", dateStyle: "short" });
 
 /** Celda CSV entre comillas; neutraliza fórmulas aunque vengan tras espacios o saltos de línea. */
 export function celdaCsv(v: string | number) {
@@ -154,25 +162,29 @@ export function celdaCsv(v: string | number) {
   return `"${seguro.replace(/"/g, '""')}"`;
 }
 
-/** CSV del historial para auditoría: sin datos de candidatos ni ids que permitan ligarlos. */
+/**
+ * CSV del historial para auditoría: sin datos de candidatos ni ids que permitan ligarlos.
+ * Las categorías quedan como se decidieron en su momento: cambiar los umbrales no las recalcula.
+ */
 export function historialACsv(registros: Registro[]) {
   const encabezado = [
-    "Fecha (CDMX)", "Área", "Vacante", "Veredicto", "Puntaje", "Categoría al analizar", "Categoría vigente",
+    "Fecha (CDMX)", "Área", "Vacante", "Veredicto", "Puntaje", "Categoría al analizar", "Categoría final (al analizar o por ajuste)",
     "Ajustada", "Ajustada por", "Fecha del ajuste (CDMX)", "Motivo del ajuste", "Expiró sin revisión",
     "Posible manipulación", "Modelo", "Analizado por",
   ];
-  const filas = registros.map((r) =>
-    [
-      fechaCdmx(r.fecha), r.area, r.vacanteTitulo, VEREDICTO[r.veredicto] ?? r.veredicto, r.puntaje,
+  const filas = registros.map((r) => {
+    const fechaDe = r.cvId.startsWith(PREFIJO_SEUDONIMO) ? diaCdmx : fechaCdmx;
+    return [
+      fechaDe(r.fecha), r.area, r.vacanteTitulo, VEREDICTO[r.veredicto] ?? r.veredicto, r.puntaje,
       ETIQUETA_CATEGORIA[comoCategoria(r.categoria)], ETIQUETA_CATEGORIA[comoCategoria(r.categoriaFinal)],
-      r.ajustada ? "Sí" : "No", r.ajustadaPor ?? "", r.fechaAjuste ? fechaCdmx(r.fechaAjuste) : "",
+      r.ajustada ? "Sí" : "No", r.ajustadaPor ?? "", r.fechaAjuste ? fechaDe(r.fechaAjuste) : "",
       r.motivoAjuste ? (ETIQUETA_MOTIVO_AJUSTE[r.motivoAjuste as MotivoAjuste] ?? r.motivoAjuste) : "",
       r.expiroSinRevision ? "Sí" : "No",
       r.posibleManipulacion ? "Sí" : "No", r.modelo, r.usuarioNombre,
     ]
       .map(celdaCsv)
-      .join(","),
-  );
+      .join(",");
+  });
   // BOM para que Excel abra bien los acentos.
   return "﻿" + [encabezado.map(celdaCsv).join(","), ...filas].join("\r\n");
 }

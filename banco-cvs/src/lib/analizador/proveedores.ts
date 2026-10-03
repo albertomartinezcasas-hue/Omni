@@ -107,3 +107,10 @@ export function esModeloLigero(modelo: string, env: Record<string, string | unde
   const lista = env.IA_MODELOS_LIGEROS?.split(",").map((m) => m.trim().toLowerCase()).filter(Boolean);
   return lista?.length ? lista.includes(nombre) : /lite/.test(nombre);
 }
+
+/** Texto legible del modelo guardado («groq:openai/gpt-oss-120b» → «Servicio de IA: groq (modelo openai/gpt-oss-120b)»). */
+export function describirModelo(modelo: string) {
+  const separador = modelo.indexOf(":");
+  if (separador <= 0) return `Modelo de IA: ${modelo}`;
+  return `Servicio de IA: ${modelo.slice(0, separador)} (modelo ${modelo.slice(separador + 1)})`;
+}

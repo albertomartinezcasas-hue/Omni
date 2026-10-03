@@ -15,7 +15,10 @@ beforeAll(async () => {
 });
 
 let n = 0;
-async function registro(datos: { cvId: string; vacanteId: string; area: string; categoriaFinal: string; fecha?: Date; ajustada?: boolean }) {
+async function registro(datos: {
+  cvId: string; vacanteId: string; area: string; categoriaFinal: string; fecha?: Date; ajustada?: boolean;
+  categoria?: string; motivoAjuste?: string; horasHastaAjuste?: number; fechaAjuste?: Date;
+}) {
   n += 1;
   return db.registroAnalisis.create({
     data: {
@@ -27,9 +30,12 @@ async function registro(datos: { cvId: string; vacanteId: string; area: string; 
       fecha: datos.fecha ?? new Date(),
       veredicto: datos.categoriaFinal === "NO_VIABLE" ? "NO_VIABLE" : "VIABLE",
       puntaje: 70,
-      categoria: datos.categoriaFinal,
+      categoria: datos.categoria ?? datos.categoriaFinal,
       categoriaFinal: datos.categoriaFinal,
       ajustada: datos.ajustada ?? false,
+      motivoAjuste: datos.motivoAjuste,
+      horasHastaAjuste: datos.horasHastaAjuste,
+      fechaAjuste: datos.fechaAjuste,
       modelo: "groq:m",
       usuarioId: usuario.id,
       usuarioNombre: usuario.nombre,
@@ -71,6 +77,50 @@ describe("Historial segmentado por CVs, área y categoría", () => {
     expect(csv).not.toContain("cv9");
     expect(csv).not.toContain(r.analisisId!);
     expect(celdaCsv(" \n=1+1")).toBe(`"' \n=1+1"`);
+  });
+});
+
+describe("Ajustes manuales y re-análisis", () => {
+  it("un ajuste sigue contando en el resumen aunque el CV se re-analice; las categorías usan el resultado vigente", async () => {
+    const antes = new Date(Date.now() - DIA);
+    await registro({
+      cvId: "cvR", vacanteId: "vR", area: "Reanalisis", categoria: "REVISION", categoriaFinal: "BUENO", fecha: antes,
+      ajustada: true, motivoAjuste: "ENTREVISTA", horasHastaAjuste: 5,
+    });
+    await registro({ cvId: "cvR", vacanteId: "vR", area: "Reanalisis", categoriaFinal: "PASABLE" }); // re-análisis sin ajuste
+
+    const r = resumirHistorial(await registrosDelHistorial({ area: "Reanalisis" }));
+    expect(r.total).toMatchObject({ cvs: 1, resultados: 1, analisis: 2 });
+    expect(r.total.porCategoria).toMatchObject({ PASABLE: 1, BUENO: 0, REVISION: 0 });
+    expect(r.ajustadas).toBe(1);
+    expect(r.cambiosManuales).toEqual([{ de: "REVISION", a: "BUENO", cantidad: 1 }]);
+    expect(r.motivosAjuste).toEqual([{ motivo: expect.any(String), cantidad: 1 }]);
+    expect(r).toMatchObject({ revisionesResueltas: 1, horasPromedioRevision: 5, pendientesRevision: 0 });
+  });
+
+  it("el CSV llama a la columna «Categoría final (al analizar o por ajuste)» y no recalcula con los umbrales", async () => {
+    const r = await registro({ cvId: "cvU", vacanteId: "vU", area: "Umbrales", categoria: "BUENO", categoriaFinal: "BUENO" });
+    await db.configuracionUmbrales.upsert({ where: { id: 1 }, update: { bueno: 99, excelente: 100 }, create: { bueno: 99, excelente: 100 } });
+    const csv = historialACsv(await registrosDelHistorial({ area: "Umbrales" }));
+    expect(csv).toContain("Categoría final (al analizar o por ajuste)");
+    expect(csv).not.toContain("Categoría vigente");
+    expect(csv.split("\r\n")[1]).toContain(`"Bueno","Bueno"`);
+    await db.configuracionUmbrales.update({ where: { id: 1 }, data: { bueno: 70, excelente: 85 } });
+    expect((await db.registroAnalisis.findUniqueOrThrow({ where: { id: r.id } })).categoriaFinal).toBe("BUENO");
+  });
+
+  it("en el CSV, los registros de CVs eliminados muestran solo la fecha (sin hora)", async () => {
+    const dia = new Date("2026-03-15T06:00:00.000Z"); // 15/03/26 00:00 en CDMX
+    const vivo = await registro({ cvId: "cvVivo", vacanteId: "vF", area: "Fechas", categoriaFinal: "BUENO", fecha: new Date("2026-03-15T18:30:00.000Z") });
+    const eliminado = await registro({
+      cvId: "seudonimo-123", vacanteId: "vF", area: "Fechas", categoriaFinal: "BUENO", fecha: dia, ajustada: true, fechaAjuste: dia,
+    });
+    const [, filaVivo] = historialACsv([vivo]).split("\r\n");
+    const [, filaEliminado] = historialACsv([eliminado]).split("\r\n");
+    expect(filaVivo).toMatch(/^"15\/03\/(20)?26,? \d{1,2}:\d{2}/); // con hora
+    expect(filaEliminado).toMatch(/^"15\/03\/(20)?26",/); // fecha del análisis, sin hora
+    expect(filaEliminado).toMatch(/"Sí","[^"]*","15\/03\/(20)?26",/); // fecha del ajuste, sin hora
+    expect(filaEliminado).not.toMatch(/\d:\d{2}/);
   });
 });
 
