@@ -68,8 +68,11 @@ async function rotar(destino: string, prefijo: string, dias: number, ahora: Date
   for (const nombre of await readdir(destino)) {
     if (!nombre.startsWith(`${prefijo}-`) || nombre === actual) continue;
     const ruta = path.join(destino, nombre);
-    const vencido = ahora.getTime() - (await stat(ruta)).mtimeMs > dias * DIA_MS - MARGEN_ROTACION_MS;
-    if (vencido || !existsSync(path.join(ruta, ARCHIVO_BASE))) {
+    const antiguedad = ahora.getTime() - (await stat(ruta)).mtimeMs;
+    const vencido = antiguedad > dias * DIA_MS - MARGEN_ROTACION_MS;
+    // Incompleta y reciente (menos de 1 h): puede ser otro respaldo en curso (cron y manual a la vez); no se toca.
+    const incompleta = !existsSync(path.join(ruta, ARCHIVO_BASE)) && antiguedad > MARGEN_ROTACION_MS;
+    if (vencido || incompleta) {
       await rm(ruta, { recursive: true, force: true });
       borrados += 1;
     }

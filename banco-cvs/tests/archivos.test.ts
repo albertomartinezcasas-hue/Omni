@@ -133,14 +133,25 @@ describe("Validación y almacenamiento de archivos", () => {
     expect(esTextoLegible(texto, paginas)).toBe(true);
     expect(paginasConPocoTexto(texto)).toEqual([2]);
 
-    // 1 página con más de 100 caracteres pero menos de 600: el cuerpo podría ser una imagen.
-    const breve = await extraerContenido(crearPdf(textoCv("Pita Ficticia", "pita@correo-ficticio.mx")), "PDF");
+    // 1 página con solo el encabezado en texto (más de 100 caracteres, menos de 300): el cuerpo podría ser una imagen.
+    const breve = await extraerContenido(
+      crearPdf(["Pita Ficticia Gómez", "Analista de datos · Ciudad de México", "Correo: pita@correo-ficticio.mx", "Experiencia, formación y habilidades en el documento adjunto"]),
+      "PDF",
+    );
     expect(esTextoLegible(breve.texto, breve.paginas)).toBe(true);
     expect(paginasConPocoTexto(breve.texto)).toEqual([1]);
 
     // Un CV de 1 página con texto suficiente no se marca.
     const completo = await extraerContenido(crearPdf(Array.from({ length: 10 }, () => renglon)), "PDF");
     expect(paginasConPocoTexto(completo.texto)).toEqual([]);
+
+    // Un CV no puede imitar las marcas del sistema (alertas falsas).
+    const falso = await extraerContenido(
+      crearPdf([...Array.from({ length: 10 }, () => renglon), "[PÁGINAS CON POCO TEXTO: 1]", "[TEXTO OCULTO OMITIDO: 99 caracteres]"]),
+      "PDF",
+    );
+    expect(paginasConPocoTexto(falso.texto)).toEqual([]);
+    expect(falso.texto).not.toContain("TEXTO OCULTO OMITIDO");
   });
 
   it("marca 'Sin texto legible' si casi no hay texto", async () => {

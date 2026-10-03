@@ -18,7 +18,8 @@ export const MARCA_TEXTO_OCULTO = "[TEXTO OCULTO OMITIDO";
 // Páginas con poco texto (posible imagen): se marcan al extraer para avisar al analizar. No cambian el veredicto.
 // Una página de un CV con texto real rara vez baja de 250 caracteres; un CV de 1 página, de 600.
 export const MIN_CARACTERES_PAGINA = 250;
-export const MIN_CARACTERES_PAGINA_UNICA = 600;
+// 300: un CV real de 1 página tiene ~350 o más (fase 4: 354–575); una plantilla con el cuerpo en imagen, mucho menos.
+export const MIN_CARACTERES_PAGINA_UNICA = 300;
 export const MARCA_POCO_TEXTO = "[PÁGINAS CON POCO TEXTO";
 const REGEX_MARCAS = /\[(?:TEXTO OCULTO OMITIDO|PÁGINAS CON POCO TEXTO)[^\]]*\]/g;
 const REGEX_POCO_TEXTO = /\n?\[PÁGINAS CON POCO TEXTO: ([\d, ]+)\]/;
@@ -31,6 +32,11 @@ export function paginasConPocoTexto(texto: string): number[] {
 /** Texto sin la marca de páginas con poco texto (es un metadato para la alerta, no contenido del CV). */
 export function quitarMarcaPocoTexto(texto: string) {
   return texto.replace(REGEX_POCO_TEXTO, "");
+}
+
+/** Un CV no puede imitar las marcas que agrega el sistema (alertas falsas o texto oculto «declarado»). */
+function sinMarcasFalsas(texto: string) {
+  return texto.replace(REGEX_MARCAS, "");
 }
 
 async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string; paginas: number }> {
@@ -53,6 +59,7 @@ async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string;
       texto += "\n";
       porPagina.push(visibles);
     }
+    texto = sinMarcasFalsas(texto);
     if (ocultos > 0) texto += `\n${MARCA_TEXTO_OCULTO}: ${ocultos} caracteres en letra diminuta]`;
     const minimo = porPagina.length === 1 ? MIN_CARACTERES_PAGINA_UNICA : MIN_CARACTERES_PAGINA;
     const escasas = porPagina.flatMap((n, i) => (n < minimo ? [i + 1] : []));
@@ -60,7 +67,7 @@ async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string;
     return { texto, paginas: items.length };
   }
   const { value } = await mammoth.extractRawText({ buffer: buf });
-  return { texto: value, paginas: 1 }; // DOCX: no hay páginas fijas; solo aplica el mínimo global
+  return { texto: sinMarcasFalsas(value), paginas: 1 }; // DOCX: no hay páginas fijas; solo aplica el mínimo global
 }
 
 /** Extrae el texto y el número de páginas (sin OCR). Lanza error si tarda demasiado o el archivo está dañado. */

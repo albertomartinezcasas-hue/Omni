@@ -100,13 +100,17 @@ describe("Respaldos en dos niveles", () => {
     expect(readdirSync(destino).filter((n) => n.startsWith("permanente-"))).toEqual([]);
   });
 
-  it("la rotación borra las carpetas permanentes incompletas (sin banco.db), aunque sean recientes", async () => {
+  it("la rotación borra las carpetas incompletas (sin banco.db) de más de 1 h; respeta las de un respaldo en curso", async () => {
     const destino = mkdtempSync(path.join(tmpdir(), "banco-cvs-incompleto-"));
-    const incompleta = carpetaVieja(destino, "permanente-incompleta", 1 * HORA, true);
+    const incompleta = carpetaVieja(destino, "permanente-incompleta", 2 * HORA, true);
     writeFileSync(path.join(incompleta, "banco.db.tmp"), "copia a medio limpiar");
+    const hace2h = new Date(Date.now() - 2 * HORA);
+    utimesSync(incompleta, hace2h, hace2h); // escribir el archivo actualiza la fecha de la carpeta
+    const enCurso = carpetaVieja(destino, "permanente-en-curso", 0.1 * HORA, true);
     const completa = carpetaVieja(destino, "permanente-completa", 1 * HORA);
     await crearRespaldos({ destino, diasCompleto: 1, diasPermanente: 30 });
     expect(existsSync(incompleta)).toBe(false);
+    expect(existsSync(enCurso)).toBe(true);
     expect(existsSync(completa)).toBe(true);
   });
 

@@ -411,3 +411,19 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - expectativa del CV 08 en la validación de la fase 4 («Pendiente de revisión», por la regla de relevancia aprobada).
 - Validación con IA real (Groq y cadena de Gemini): 8 de 9 coinciden; el CV 08 da «Pendiente de revisión», lo que corresponde a la regla aprobada.
 - **Decisión pendiente del usuario**: ¿una página con muy poco texto debe dejar el análisis en «Pendiente de revisión»? Hoy solo genera una alerta, porque cambiarlo modifica las reglas del veredicto.
+
+### Ronda 4 (confirmación final): el auditor y los tres expertos aprueban para producción
+
+- **Auditor:** «No queda nada Alto ni Medio que bloquee producción».
+  - Corregido (Media): falsos positivos de «poco texto» en CVs reales de 1 página; el mínimo baja a 300 caracteres (los CVs reales de la fase 4 tienen de 354 a 575).
+- **revisor-seguridad: APROBADO para producción.**
+  - Corregido (Baja): un CV no puede imitar las marcas del sistema.
+  - Corregido (Baja): la rotación no borra un respaldo en curso (incompleto y de menos de 1 h).
+- **ux-ui-reviewer: APROBADO para producción.**
+- **experto-reclutamiento: APROBADO para producción**, condicionado a completar la lista previa de `DESPLIEGUE.md` y a la decisión sobre las páginas con poco texto.
+- **Bajas abiertas (no bloquean):**
+  - un análisis reemplazado todavía ofrece «Cambiar categoría»;
+  - la alerta de «poco texto» solo aparece en la sección Alertas (podría repetirse junto al veredicto);
+  - al restaurar un respaldo permanente, los pendientes copiados quedan abiertos (requiere un campo en el esquema);
+  - las páginas «no encontrado» responden HTTP 200.
+- **Decisión del usuario**: páginas con poco texto → «Pendiente de revisión». El experto recomienda aplicarlo solo cuando coincide con una causa firme de NO VIABLE.
