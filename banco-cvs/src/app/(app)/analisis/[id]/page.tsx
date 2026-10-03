@@ -152,7 +152,7 @@ export default async function PaginaAnalisis({ params }: { params: Promise<{ id:
           ))}
         </dl>
         <p className="text-xs text-slate-600">
-          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)}. {describirModelo(a.modelo)}. Umbrales vigentes:
+          Analizado por {a.creadoPor.nombre} el {formatearFecha(a.creadoEn)} · {describirModelo(a.modelo)}. Umbrales vigentes:
           Excelente ≥ {a.umbrales.excelente}, Bueno ≥ {a.umbrales.bueno}, Pasable ≥ {a.umbrales.pasable}.
         </p>
       </section>

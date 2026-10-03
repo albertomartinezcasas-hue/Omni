@@ -13,6 +13,11 @@ export function directorioAlmacenamiento(env: Record<string, string | undefined>
   return path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.STORAGE_DIR?.trim() || "storage");
 }
 
+/** ¿El nombre tiene la forma de un archivo de CV (UUID)? */
+export function esIdDeArchivo(nombre: string) {
+  return REGEX_UUID.test(nombre);
+}
+
 function rutaDe(archivoId: string) {
   // La ruta solo se arma con un UUID validado: no hay forma de salir de la carpeta.
   if (!REGEX_UUID.test(archivoId)) throw new Error("Identificador de archivo no válido");

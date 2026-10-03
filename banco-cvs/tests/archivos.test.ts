@@ -91,6 +91,34 @@ describe("Validación y almacenamiento de archivos", () => {
     expect(esTextoLegible("Hoja escaneada\n[TEXTO OCULTO OMITIDO: 5000 caracteres en letra diminuta]")).toBe(false);
   });
 
+  it("un PDF de 3 páginas con solo el encabezado como texto queda «sin texto legible»; un CV de 1 página no", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const pdf = await PDFDocument.create();
+    const fuente = await pdf.embedFont(StandardFonts.Helvetica);
+    const encabezado = [
+      "Mariana Ficticia Gómez · Licenciada en Administración de Empresas",
+      "Correo: mariana@correo-ficticio.mx · Teléfono: 55 1234 5678 · Ciudad de México",
+      "Perfil: profesional con experiencia en compras, inventarios y atención a proveedores.",
+    ];
+    for (let i = 0; i < 3; i++) {
+      const pagina = pdf.addPage([612, 792]);
+      // El cuerpo sería una imagen escaneada: solo la primera página tiene texto real.
+      if (i === 0) encabezado.forEach((l, j) => pagina.drawText(l, { x: 50, y: 740 - j * 14, size: 10, font: fuente }));
+    }
+    const escaneado = await subirCv(usuario, { nombreArchivo: "mitad.pdf", contenido: Buffer.from(await pdf.save()), forzar: true });
+    expect(escaneado).toMatchObject({ estado: "GUARDADO", sinTexto: true });
+    // El mismo encabezado en 1 página pasa el mínimo global: la densidad por página es lo que lo detecta.
+    expect(esTextoLegible(encabezado.join("\n"), 1)).toBe(true);
+    expect(esTextoLegible(encabezado.join("\n"), 3)).toBe(false);
+
+    const real = await subirCv(usuario, {
+      nombreArchivo: "real.pdf",
+      contenido: crearPdf([...textoCv("Rocío Ficticia", "rocio@correo-ficticio.mx"), "Manejo de inventarios y compras.", "Disponibilidad inmediata."]),
+      forzar: true,
+    });
+    expect(real).toMatchObject({ estado: "GUARDADO", sinTexto: false });
+  });
+
   it("marca 'Sin texto legible' si casi no hay texto", async () => {
     const r = await subirCv(usuario, { nombreArchivo: "escaneado.pdf", contenido: crearPdf(["Hoja escaneada"]), forzar: false });
     expect(r.estado).toBe("GUARDADO");

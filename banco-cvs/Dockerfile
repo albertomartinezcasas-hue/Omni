@@ -19,19 +19,26 @@ COPY . .
 RUN npm run build
 
 FROM base AS run
+# Cachés de npm y Prisma en /tmp: con --read-only, /tmp es un tmpfs (ver DESPLIEGUE.md).
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    NPM_CONFIG_CACHE=/tmp/.npm \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    CHECKPOINT_DISABLE=1
 # Prisma necesita OpenSSL para detectar y usar su motor de migraciones (ya incluido en node_modules).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-RUN useradd --system --uid 1001 app \
- && mkdir -p data storage respaldos \
- && chown app:app data storage respaldos
-COPY --from=build --chown=app:app /app ./
+RUN useradd --system --uid 1001 app
+# La app queda como root (solo lectura para `app`): el usuario del servicio solo escribe en los datos y en la
+# caché de Next.js (.next/cache, que `next start` usa para su caché en disco).
+COPY --from=build /app ./
+RUN mkdir -p data storage respaldos .next/cache \
+ && chown app:app data storage respaldos .next/cache
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD node -e "fetch('http://127.0.0.1:3000/api/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 # Aplica las migraciones pendientes y arranca. La configuración se valida al iniciar (src/instrumentation.ts).
-CMD ["sh", "-c", "npx prisma migrate deploy && npx next start"]
+# Binarios locales (sin npx): no necesitan escribir en la caché de npm.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node_modules/.bin/next start"]

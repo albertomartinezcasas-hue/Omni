@@ -164,6 +164,8 @@ export async function detalleAnalisis(id: string) {
 }
 
 const LIMITE_REPOSITORIO = 300;
+/** Tope de CVs cuyo texto se revisa en una búsqueda por palabra clave (los más recientes). */
+export const LIMITE_BUSQUEDA_TEXTO = 2000;
 
 /** Minúsculas y sin acentos: «HÉCTOR NÚÑEZ» → «hector nunez». */
 export function normalizarBusqueda(texto: string) {
@@ -194,12 +196,15 @@ export async function buscarCvs(f: FiltrosRepositorio) {
     ...(f.vacanteId ? { analisis: { some: { vacanteId: f.vacanteId } } } : {}),
   };
 
-  // SQLite no compara sin acentos: la palabra clave se busca en memoria (los CVs se conservan pocos días).
+  // SQLite no compara sin acentos: la palabra clave se busca en memoria. Para no cargar el texto de todo el
+  // repositorio, solo se revisan los LIMITE_BUSQUEDA_TEXTO CVs más recientes que cumplen los demás filtros; con la
+  // conservación de 1 día el volumen real queda muy por debajo de ese tope.
   let ids: string[] | undefined;
   if (q) {
     const candidatos = await db.cv.findMany({
       where: filtros,
       orderBy: { creadoEn: "desc" },
+      take: LIMITE_BUSQUEDA_TEXTO,
       select: { id: true, nombreCandidato: true, nombreArchivo: true, textoExtraido: true },
     });
     ids = candidatos

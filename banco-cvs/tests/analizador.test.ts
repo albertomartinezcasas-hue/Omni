@@ -10,6 +10,7 @@ import type { Extraccion, VacanteEvaluada } from "@/lib/analizador/tipos";
 import { verificarExtraccion } from "@/lib/analizador/verificar";
 import { subirCv } from "@/lib/archivos/servicio";
 import { db } from "@/lib/db";
+import { ErrorTransitorio } from "@/lib/errores";
 import { crearPdf, crearUsuario, simularSesion } from "./ayuda";
 
 vi.mock("@/lib/analizador/cliente", async (original) => ({
@@ -308,6 +309,7 @@ describe("Análisis completo (API simulada)", () => {
     expect(await analizarCvAccion(cvId, vacanteId)).toEqual({
       ok: false,
       error: "El análisis tardó más de 60 segundos. Usa «Reintentar».",
+      transitorio: true,
     });
     expect(await db.analisis.count()).toBe(antes);
   });
@@ -316,11 +318,15 @@ describe("Análisis completo (API simulada)", () => {
     const sinTexto = await subirCv(usuario, { nombreArchivo: "escaneado.pdf", contenido: crearPdf(["Hoja"]), forzar: true });
     if (sinTexto.estado !== "GUARDADO") throw new Error();
     await simularSesion(usuario);
-    expect((await analizarCvAccion(sinTexto.id, vacanteId)).error).toMatch(/no tiene texto legible/);
+    // Errores finales: no se ofrece «Reintentar».
+    const sinTextoR = await analizarCvAccion(sinTexto.id, vacanteId);
+    expect(sinTextoR.error).toMatch(/no tiene texto legible/);
+    expect(await analizarCvAccion("no-existe", vacanteId)).toEqual({ ok: false, error: "El CV no existe." });
+    expect(sinTextoR).not.toHaveProperty("transitorio");
     await simularSesion(admin);
     await archivarVacanteAccion(vacanteId);
     await simularSesion(usuario);
-    expect((await analizarCvAccion(cvId, vacanteId)).error).toBe("La vacante está archivada y es de solo lectura.");
+    expect(await analizarCvAccion(cvId, vacanteId)).toStrictEqual({ ok: false, error: "La vacante está archivada y es de solo lectura." });
     expect(api).not.toHaveBeenCalled();
   });
 
@@ -344,6 +350,7 @@ describe("Límite de uso del analizador", () => {
     let liberar!: () => void;
     const primero = conLimiteDeAnalisis("u1", "cv1", "v1", () => new Promise<void>((r) => (liberar = r)));
     await expect(conLimiteDeAnalisis("u1", "cv1", "v1", async () => {})).rejects.toThrow("ya se está analizando");
+    await expect(conLimiteDeAnalisis("u1", "cv1", "v1", async () => {})).rejects.not.toBeInstanceOf(ErrorTransitorio);
     liberar();
     await primero;
     await expect(conLimiteDeAnalisis("u1", "cv1", "v1", async () => "ok")).resolves.toBe("ok");
@@ -351,7 +358,8 @@ describe("Límite de uso del analizador", () => {
 
   it(`limita a ${MAX_ANALISIS_POR_MINUTO} análisis por minuto por usuario`, async () => {
     for (let i = 0; i < MAX_ANALISIS_POR_MINUTO; i++) await conLimiteDeAnalisis("u1", `cv${i}`, "v1", async () => {});
-    await expect(conLimiteDeAnalisis("u1", "cvX", "v1", async () => {})).rejects.toThrow("límite");
+    // El límite por minuto es transitorio: se ofrece «Reintentar».
+    await expect(conLimiteDeAnalisis("u1", "cvX", "v1", async () => {})).rejects.toBeInstanceOf(ErrorTransitorio);
     await expect(conLimiteDeAnalisis("u2", "cvX", "v1", async () => "ok")).resolves.toBe("ok");
   });
 });

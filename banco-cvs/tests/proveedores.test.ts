@@ -197,11 +197,14 @@ describe("Respaldo entre proveedores", () => {
   });
 });
 
-describe("Modelo legible en la página del análisis", () => {
-  it("separa el servicio y el modelo sin cambiar el valor guardado", () => {
-    expect(describirModelo("groq:openai/gpt-oss-120b")).toBe("Servicio de IA: groq (modelo openai/gpt-oss-120b)");
-    expect(describirModelo("openai:gpt-oss:20b")).toBe("Servicio de IA: openai (modelo gpt-oss:20b)");
-    expect(describirModelo("prueba")).toBe("Modelo de IA: prueba");
+describe("Modelo legible (análisis, bitácora y CSV)", () => {
+  it("separa el servicio y el modelo, y avisa si es la versión rápida (menos precisa)", () => {
+    expect(describirModelo("groq:openai/gpt-oss-120b", {})).toBe("Servicio de IA: Groq · modelo openai/gpt-oss-120b");
+    expect(describirModelo("openai:gpt-oss:20b", {})).toBe("Servicio de IA: Openai · modelo gpt-oss:20b");
+    expect(describirModelo("gemini:models/gemini-3.5-flash-lite", {})).toBe(
+      "Servicio de IA: Gemini · versión rápida de la IA (menos precisa) · modelo gemini-3.5-flash-lite",
+    );
+    expect(describirModelo("prueba", {})).toBe("Servicio de IA · modelo prueba");
   });
 });
 

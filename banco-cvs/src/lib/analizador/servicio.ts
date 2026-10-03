@@ -2,7 +2,7 @@ import { registrarEvento, type Actor } from "@/lib/bitacora";
 import type { NivelEstudio, NivelIdioma } from "@/lib/catalogos";
 import { db } from "@/lib/db";
 import { obtenerUmbrales } from "@/lib/umbrales/servicio";
-import { ErrorNegocio } from "@/lib/errores";
+import { ErrorNegocio, ErrorTransitorio } from "@/lib/errores";
 import { leerIdiomas, leerRequisitos } from "@/lib/vacantes/esquema";
 import { ErrorApiAnalizador, solicitarExtraccion, TIEMPO_MAXIMO_MS } from "./cliente";
 import { calcularCategoria } from "./categoria";
@@ -100,7 +100,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
     throw new ErrorNegocio("El candidato se opuso al análisis con IA: este CV solo puede evaluarlo una persona.");
   }
   if (cv.estado !== "CON_TEXTO") {
-    throw new ErrorNegocio("Este CV no tiene texto legible (posible PDF escaneado) y no se puede analizar.");
+    throw new ErrorNegocio("Este CV no tiene texto legible (PDF escaneado o con partes en imagen) y no se puede analizar. Pide una versión con texto.");
   }
 
   const evaluada = vacanteEvaluada(vacante);
@@ -111,7 +111,7 @@ export async function analizarCv(actor: Actor, cvId: string, vacanteId: string) 
   try {
     ext = await conLimiteDeAnalisis(actor.id, cvId, vacanteId, () => extraerEvidencia(evaluada, textoOculto, fechaAnalisis));
   } catch (error) {
-    if (error instanceof ErrorApiAnalizador) throw new ErrorNegocio(`${error.motivo} Usa «Reintentar».`);
+    if (error instanceof ErrorApiAnalizador) throw new ErrorTransitorio(`${error.motivo} Usa «Reintentar».`);
     throw error;
   }
   const { extraccion, proveedor } = ext;

@@ -1,3 +1,4 @@
+import { describirModelo } from "@/lib/analizador/proveedores";
 import { ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, ETIQUETA_ROL, type Categoria, type MotivoAjuste, type Rol } from "@/lib/catalogos";
 
 const ETIQUETA_CAMPO: Record<string, string> = {
@@ -22,7 +23,7 @@ const ETIQUETA_CAMPO: Record<string, string> = {
   version: "Versión",
   veredicto: "Veredicto",
   puntaje: "Puntaje",
-  modelo: "Modelo",
+  modelo: "Inteligencia artificial",
   comentario: "Comentario",
   categoriaCalculada: "Categoría calculada",
   instruccionesOmitidas: "Renglones con instrucciones ignorados",
@@ -31,6 +32,7 @@ const ETIQUETA_CAMPO: Record<string, string> = {
   nuevo: "Nuevo",
   cantidad: "Cantidad",
   plazoDias: "Plazo (días)",
+  huerfanos: "Archivos huérfanos eliminados",
   ids: "Ids",
   seOpone: "Se opone",
   oposicionIA: "Oposición al análisis con IA",
@@ -55,6 +57,7 @@ function valor(clave: string, v: unknown): string {
   if (clave === "motivo") return MOTIVOS[String(v)] ?? ETIQUETA_MOTIVO_AJUSTE[v as MotivoAjuste] ?? String(v);
   if (clave.startsWith("rol")) return ETIQUETA_ROL[v as Rol] ?? String(v);
   if (clave === "categoriaCalculada") return categoria(v);
+  if (clave === "modelo") return describirModelo(String(v));
   if (clave === "hasta") return new Date(String(v)).toLocaleString("es-MX", { timeZone: "America/Mexico_City" });
   if (clave === "filtros" && v && typeof v === "object") {
     const partes = Object.entries(v as Record<string, unknown>)

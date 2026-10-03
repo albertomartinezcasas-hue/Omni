@@ -377,3 +377,23 @@ Formato: [Prioridad] (Fase · Experto) descripción — estado
   - el CSV muestra solo la fecha en los registros con seudónimo;
   - aviso «Desliza…» en móvil.
 - **Baja (no se corrige)**: las páginas «no encontrado» dentro de la app responden HTTP 200. Con el streaming de `loading.tsx` ya no se puede cambiar el código; Next agrega `noindex`.
+
+### Ronda 2 (auditor: 7 de 8 corregidos y 1 nuevo; expertos: 2 Alta de reclutamiento) → corregida por el implementador
+
+- Corregido (Alta): un PDF de 2 o más páginas con menos de 250 caracteres por página se clasifica como «sin texto legible» («escaneado o con partes en imagen»), sin cambiar las reglas del veredicto.
+- Corregido (Alta): respaldo en dos niveles. El completo (con CVs) se conserva `RESPALDO_DIAS`; el permanente (sin datos de candidatos, con el historial en seudónimos) se conserva `RESPALDO_PERMANENTE_DIAS`, 30 por defecto.
+- Corregido (Media):
+  - barrido de huérfanos solo con archivos más antiguos que el plazo más 2 h y si coincide más del 50 % con la base; la cantidad borrada queda en la bitácora;
+  - Dockerfile con la app como root y escritura solo en los datos; probado con `--read-only` y `--cap-drop=ALL`;
+  - tope de 2000 CVs en la búsqueda;
+  - «Reintentar» solo en errores transitorios;
+  - textos del plazo;
+  - tres puntos operativos en la lista previa.
+- Corregido (Baja):
+  - `AUTH_URL` https en producción;
+  - margen de 1 h en la rotación de respaldos;
+  - systemd endurecido;
+  - `/api/salud` limitado a la red interna en el proxy;
+  - doble punto en el análisis;
+  - modelo de IA legible en el análisis, la bitácora y el CSV;
+  - textos del aviso de desplazamiento y del historial.

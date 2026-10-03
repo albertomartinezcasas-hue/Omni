@@ -26,6 +26,12 @@ describe("Validación de la configuración al arrancar", () => {
     expect(errores).toHaveLength(5);
   });
 
+  it("en producción exige https también en localhost", () => {
+    const r = revisarConfiguracion({ ...VALIDA, NODE_ENV: "production", AUTH_URL: "http://localhost:3000" });
+    expect(r.errores).toContainEqual(expect.stringContaining("AUTH_URL debe usar https://"));
+    expect(revisarConfiguracion({ ...VALIDA, NODE_ENV: "production", AUTH_URL: "https://localhost:3000" }).errores).toEqual([]);
+  });
+
   it("permite http solo en localhost y avisa (sin bloquear) si no hay proveedores de IA", () => {
     const r = revisarConfiguracion({ ...VALIDA, AUTH_URL: "http://localhost:3000", GROQ_API_KEY: undefined });
     expect(r.errores).toEqual([]);

@@ -1,4 +1,4 @@
-import { ErrorNegocio } from "@/lib/errores";
+import { ErrorNegocio, ErrorTransitorio } from "@/lib/errores";
 
 // Límite de uso del analizador, en memoria del proceso del servidor (la app corre en una sola instancia con SQLite).
 // Evita que clics repetidos o análisis en paralelo agoten el cupo gratuito de todos los modelos.
@@ -21,7 +21,7 @@ export async function conLimiteDeAnalisis<T>(usuarioId: string, cvId: string, va
   const ahora = Date.now();
   const marcas = (recientes.get(usuarioId) ?? []).filter((t) => ahora - t < VENTANA_MS);
   if (marcas.length >= MAX_ANALISIS_POR_MINUTO) {
-    throw new ErrorNegocio(`Alcanzaste el límite de ${MAX_ANALISIS_POR_MINUTO} análisis por minuto. Intenta en un momento.`);
+    throw new ErrorTransitorio(`Alcanzaste el límite de ${MAX_ANALISIS_POR_MINUTO} análisis por minuto. Intenta en un momento.`);
   }
   marcas.push(ahora);
   recientes.set(usuarioId, marcas);

@@ -8,11 +8,15 @@ const TIEMPO_MAXIMO_MS = 30_000;
 // Se exigen también palabras: números de página o restos sueltos no cuentan como texto.
 export const MIN_CARACTERES_LEGIBLES = 100;
 export const MIN_PALABRAS_LEGIBLES = 15;
+// PDF de varias páginas: un CV con texto real tiene más de 1,000 caracteres por página; uno con el encabezado como
+// texto y el cuerpo como imagen pasa el mínimo global pero queda muy por debajo de esto en promedio.
+// En PDFs de 1 página solo aplica el mínimo global, para no rechazar un CV breve pero real.
+export const MIN_CARACTERES_POR_PAGINA = 250;
 /** Texto de menos de 3 pt no se lee a simple vista: se omite (posible texto oculto para manipular el análisis). */
 const TAMANO_MINIMO_VISIBLE = 3;
 export const MARCA_TEXTO_OCULTO = "[TEXTO OCULTO OMITIDO";
 
-async function extraer(buf: Buffer, tipo: TipoArchivo) {
+async function extraer(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string; paginas: number }> {
   if (tipo === "PDF") {
     const pdf = await getDocumentProxy(new Uint8Array(buf));
     const { items } = await extractTextItems(pdf);
@@ -29,29 +33,40 @@ async function extraer(buf: Buffer, tipo: TipoArchivo) {
       texto += "\n";
     }
     if (ocultos > 0) texto += `\n${MARCA_TEXTO_OCULTO}: ${ocultos} caracteres en letra diminuta]`;
-    return texto;
+    return { texto, paginas: items.length };
   }
   const { value } = await mammoth.extractRawText({ buffer: buf });
-  return value;
+  return { texto: value, paginas: 1 }; // DOCX: no hay páginas fijas; solo aplica el mínimo global
 }
 
-/** Extrae el texto del archivo (sin OCR). Lanza error si tarda demasiado o el archivo está dañado. */
-export async function extraerTexto(buf: Buffer, tipo: TipoArchivo): Promise<string> {
+/** Extrae el texto y el número de páginas (sin OCR). Lanza error si tarda demasiado o el archivo está dañado. */
+export async function extraerContenido(buf: Buffer, tipo: TipoArchivo): Promise<{ texto: string; paginas: number }> {
   let temporizador: ReturnType<typeof setTimeout> | undefined;
   const limite = new Promise<never>((_, rechazar) => {
     temporizador = setTimeout(() => rechazar(new Error("TIEMPO_EXTRACCION")), TIEMPO_MAXIMO_MS);
   });
   try {
-    const texto = await Promise.race([extraer(buf, tipo), limite]);
-    return texto.replace(/\u0000/g, "").trim();
+    const { texto, paginas } = await Promise.race([extraer(buf, tipo), limite]);
+    return { texto: texto.replace(/\u0000/g, "").trim(), paginas: Math.max(1, paginas) };
   } finally {
     clearTimeout(temporizador);
   }
 }
 
-export function esTextoLegible(texto: string) {
+/** Solo el texto extraído. */
+export async function extraerTexto(buf: Buffer, tipo: TipoArchivo): Promise<string> {
+  return (await extraerContenido(buf, tipo)).texto;
+}
+
+/**
+ * ¿Hay texto suficiente para analizar? Si no, el CV se guarda «sin texto legible» (PDF escaneado o con partes en
+ * imagen) y se pide una versión con texto: así la IA no lo descarta por falta de evidencia que sí está en la imagen.
+ */
+export function esTextoLegible(texto: string, paginas = 1) {
   // La marca de texto oculto la agrega el sistema: no es texto del CV.
   const visible = texto.replace(/\[TEXTO OCULTO OMITIDO[^\]]*\]/g, "");
+  const caracteres = visible.replace(/\s+/g, "").length;
   const palabras = visible.match(/\p{L}{2,}/gu)?.length ?? 0;
-  return visible.replace(/\s+/g, "").length >= MIN_CARACTERES_LEGIBLES && palabras >= MIN_PALABRAS_LEGIBLES;
+  if (caracteres < MIN_CARACTERES_LEGIBLES || palabras < MIN_PALABRAS_LEGIBLES) return false;
+  return paginas < 2 || caracteres / paginas >= MIN_CARACTERES_POR_PAGINA;
 }

@@ -74,6 +74,8 @@ describe("Historial segmentado por CVs, área y categoría", () => {
     const csv = historialACsv([r]);
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
     expect(csv).toContain("Pendiente de revisión");
+    expect(csv).toContain("Servicio de IA: Groq · modelo m");
+    expect(csv).not.toContain("groq:m");
     expect(csv).not.toContain("cv9");
     expect(csv).not.toContain(r.analisisId!);
     expect(celdaCsv(" \n=1+1")).toBe(`"' \n=1+1"`);

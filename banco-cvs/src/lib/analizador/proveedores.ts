@@ -108,9 +108,18 @@ export function esModeloLigero(modelo: string, env: Record<string, string | unde
   return lista?.length ? lista.includes(nombre) : /lite/.test(nombre);
 }
 
-/** Texto legible del modelo guardado («groq:openai/gpt-oss-120b» → «Servicio de IA: groq (modelo openai/gpt-oss-120b)»). */
-export function describirModelo(modelo: string) {
+/**
+ * Texto legible del modelo guardado («proveedor:modelo»), sin jerga: «Servicio de IA: Groq · modelo openai/gpt-oss-120b».
+ * Si es un modelo ligero, lo dice: «versión rápida de la IA (menos precisa)». El valor guardado no cambia.
+ */
+export function describirModelo(modelo: string, env: Record<string, string | undefined> = process.env) {
   const separador = modelo.indexOf(":");
-  if (separador <= 0) return `Modelo de IA: ${modelo}`;
-  return `Servicio de IA: ${modelo.slice(0, separador)} (modelo ${modelo.slice(separador + 1)})`;
+  const servicio = separador > 0 ? modelo.slice(0, separador) : "";
+  const nombre = (separador > 0 ? modelo.slice(separador + 1) : modelo).replace(/^models\//, "");
+  const partes = [
+    servicio ? `Servicio de IA: ${servicio.charAt(0).toUpperCase()}${servicio.slice(1)}` : "Servicio de IA",
+    ...(esModeloLigero(modelo, env) ? ["versión rápida de la IA (menos precisa)"] : []),
+    `modelo ${nombre}`,
+  ];
+  return partes.join(" · ");
 }

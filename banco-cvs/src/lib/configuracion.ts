@@ -19,8 +19,9 @@ export function revisarConfiguracion(env: Record<string, string | undefined> = p
   } else {
     try {
       const u = new URL(url);
-      const local = ["localhost", "127.0.0.1"].includes(u.hostname);
-      if (u.protocol !== "https:" && !local) errores.push("AUTH_URL debe usar https://.");
+      // http solo se permite en localhost y fuera de producción (desarrollo y pruebas).
+      const local = ["localhost", "127.0.0.1"].includes(u.hostname) && env.NODE_ENV !== "production";
+      if (u.protocol !== "https:" && !local) errores.push("AUTH_URL debe usar https:// (en producción, también en localhost).");
     } catch {
       errores.push("AUTH_URL no es una URL válida.");
     }

@@ -5,13 +5,13 @@ import { ErrorNegocio } from "@/lib/errores";
 import { eliminarArchivo, guardarArchivo, leerArchivo } from "./almacenamiento";
 import { olvidarCvs } from "./olvido";
 import { extraerCorreo, hashDeTexto } from "./duplicados";
-import { esTextoLegible, extraerTexto } from "./extraer";
+import { esTextoLegible, extraerContenido } from "./extraer";
 import { detectarTipo, TAMANO_MAXIMO } from "./firma";
 
 export const ESTADO_SIN_TEXTO = "SIN_TEXTO_LEGIBLE";
 export const ETIQUETA_ESTADO_CV: Record<string, string> = {
   CON_TEXTO: "Texto extraído",
-  SIN_TEXTO_LEGIBLE: "Sin texto legible (posible PDF escaneado)",
+  SIN_TEXTO_LEGIBLE: "Sin texto legible (PDF escaneado o con partes en imagen)",
 };
 
 export type CvDuplicado = {
@@ -47,8 +47,9 @@ export async function subirCv(
   if (!tipo) throw new ErrorNegocio("Formato no válido: solo se aceptan PDF y DOCX.");
 
   let texto: string;
+  let paginas: number;
   try {
-    texto = await extraerTexto(contenido, tipo);
+    ({ texto, paginas } = await extraerContenido(contenido, tipo));
   } catch {
     throw new ErrorNegocio("No se pudo leer el archivo: puede estar dañado o protegido.");
   }
@@ -86,7 +87,7 @@ export async function subirCv(
     })) > 0;
   const sinAnalisisIA = entrada.sinAnalisisIA === true || oposicionPrevia;
 
-  const sinTexto = !esTextoLegible(texto);
+  const sinTexto = !esTextoLegible(texto, paginas);
   const nombreArchivo = limpiarNombre(entrada.nombreArchivo);
   const archivoId = await guardarArchivo(contenido);
   try {

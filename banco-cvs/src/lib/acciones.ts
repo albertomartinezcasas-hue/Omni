@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { ErrorAutorizacion, requerirRol, type UsuarioActual } from "@/lib/auth";
 import type { Rol } from "@/lib/catalogos";
-import { ErrorNegocio } from "@/lib/errores";
+import { ErrorNegocio, ErrorTransitorio } from "@/lib/errores";
 
 export type ResultadoAccion<T = undefined> =
   | { ok: true; datos: T; error?: undefined }
-  | { ok: false; error: string; datos?: undefined };
+  // transitorio: reintentar puede funcionar (solo ErrorTransitorio); sin la marca, el error es final.
+  | { ok: false; error: string; transitorio?: true; datos?: undefined };
 
 export const MENSAJE_AUTORIZACION: Record<ErrorAutorizacion["motivo"], string> = {
   NO_AUTENTICADO: "Tu sesión expiró. Vuelve a iniciar sesión.",
@@ -34,7 +35,7 @@ export async function ejecutarAccion<T>(
     const usuario = await requerirRol(rol);
     return { ok: true, datos: await fn(usuario) };
   } catch (error) {
-    return { ok: false, error: mensajeDeError(error) };
+    return { ok: false, error: mensajeDeError(error), ...(error instanceof ErrorTransitorio ? { transitorio: true as const } : {}) };
   }
 }
 

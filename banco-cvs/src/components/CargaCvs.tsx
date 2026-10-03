@@ -126,8 +126,12 @@ export function CargaCvs({
     actualizar(tarea.clave, { tipo: "PROCESANDO", paso: "Analizando" });
     try {
       const r = await analizarCvAccion(cvId, vacante);
-      // Los errores del análisis (IA saturada, sin respuesta, sesión) se pueden reintentar sin volver a subir el archivo.
-      actualizar(tarea.clave, r.ok ? { tipo: "LISTO", cvId, analisisId: r.datos.id } : { tipo: "ERROR", motivo: r.error, cvId, reintentable: true });
+      // Solo los errores transitorios (IA saturada o sin respuesta, límite por minuto) ofrecen «Reintentar», que
+      // vuelve a analizar sin subir de nuevo el archivo. Vacante archivada, CV sin texto u oposición son finales.
+      actualizar(
+        tarea.clave,
+        r.ok ? { tipo: "LISTO", cvId, analisisId: r.datos.id } : { tipo: "ERROR", motivo: r.error, cvId, reintentable: r.transitorio === true },
+      );
     } catch {
       actualizar(tarea.clave, { tipo: "ERROR", motivo: "Sin conexión con el servidor.", cvId, reintentable: true });
     }
@@ -327,7 +331,7 @@ function DetalleFila({
     case "SIN_TEXTO":
       return (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-amber-900">Sin texto legible (posible PDF escaneado): se guardó, pero no se puede analizar.</span>
+          <span className="text-amber-900">Sin texto legible (PDF escaneado o con partes en imagen): se guardó, pero no se puede analizar. Pide al candidato una versión en PDF con texto o en DOCX.</span>
           <Link href={`/cvs/${estado.cvId}`} className={boton.enlace}>Ver CV</Link>
         </div>
       );

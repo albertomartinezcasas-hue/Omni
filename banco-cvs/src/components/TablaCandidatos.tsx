@@ -69,7 +69,7 @@ export function TablaCandidatos({
       </p>
       {/* En pantallas angostas las tablas se desplazan de lado y no siempre se nota. */}
       <p className="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 lg:hidden">
-        Desliza cada tabla hacia la izquierda para ver más columnas →
+        Desliza la tabla para ver más columnas <span aria-hidden="true">→</span>
       </p>
       {CATEGORIAS.map((categoria) => {
         const filas = grupos[categoria];
@@ -82,8 +82,9 @@ export function TablaCandidatos({
             {categoria === "REVISION" && filas.length > 0 && (
               <p className="px-4 pt-1 text-sm text-slate-700">
                 Requieren tu confirmación: revisa la evidencia en el CV y elige la categoría final con «Cambiar categoría».
-                Si el CV se elimina por el plazo de conservación antes de revisarlo, quedará en el historial como «expiró sin
-                revisión».
+                El CV se elimina al cumplirse el plazo de conservación aunque ya lo hayas revisado: solo una subida o un
+                análisis nuevo lo extienden. Si se elimina antes de que elijas la categoría, quedará en el historial como
+                «expiró sin revisión».
               </p>
             )}
             {filas.length === 0 ? (

@@ -37,7 +37,7 @@ export default async function PaginaCv({ params }: { params: Promise<{ id: strin
       </div>
       {cv.estado === ESTADO_SIN_TEXTO && (
         <Aviso tipo="info">
-          Sin texto legible (posible PDF escaneado): este CV no se puede analizar. Pide al candidato
+          Sin texto legible (PDF escaneado o con partes en imagen): este CV no se puede analizar. Pide al candidato
           una versión en PDF con texto o en DOCX.
         </Aviso>
       )}

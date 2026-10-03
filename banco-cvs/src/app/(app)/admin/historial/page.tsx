@@ -134,8 +134,8 @@ export default async function PaginaHistorial({ searchParams }: { searchParams: 
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Dato etiqueta="CVs analizados" valor={total.cvs} />
               <Dato etiqueta="Resultados (CV × vacante)" valor={total.resultados} />
-              <Dato etiqueta="Análisis realizados (incluye re-análisis)" valor={total.analisis} />
-              <Dato etiqueta="Categorías ajustadas a mano (incluye re-analizados)" valor={resumen.ajustadas} />
+              <Dato etiqueta="Análisis realizados (cuenta también cada vez que se volvió a analizar un CV)" valor={total.analisis} />
+              <Dato etiqueta="Categorías ajustadas a mano (aunque el CV se haya vuelto a analizar después)" valor={resumen.ajustadas} />
             </dl>
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Por categoría ({total.resultados} resultados)</h3>

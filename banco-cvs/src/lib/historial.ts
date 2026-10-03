@@ -1,5 +1,5 @@
 // Historial de análisis (estadística y auditoría). Lee solo RegistroAnalisis: sin datos de candidatos.
-import { esModeloLigero } from "@/lib/analizador/proveedores";
+import { describirModelo, esModeloLigero } from "@/lib/analizador/proveedores";
 import { PREFIJO_SEUDONIMO } from "@/lib/archivos/olvido";
 import { CATEGORIAS, ETIQUETA_CATEGORIA, ETIQUETA_MOTIVO_AJUSTE, type Categoria, type MotivoAjuste } from "@/lib/catalogos";
 import { db } from "@/lib/db";
@@ -170,7 +170,7 @@ export function historialACsv(registros: Registro[]) {
   const encabezado = [
     "Fecha (CDMX)", "Área", "Vacante", "Veredicto", "Puntaje", "Categoría al analizar", "Categoría final (al analizar o por ajuste)",
     "Ajustada", "Ajustada por", "Fecha del ajuste (CDMX)", "Motivo del ajuste", "Expiró sin revisión",
-    "Posible manipulación", "Modelo", "Analizado por",
+    "Posible manipulación", "Inteligencia artificial", "Analizado por",
   ];
   const filas = registros.map((r) => {
     const fechaDe = r.cvId.startsWith(PREFIJO_SEUDONIMO) ? diaCdmx : fechaCdmx;
@@ -180,7 +180,7 @@ export function historialACsv(registros: Registro[]) {
       r.ajustada ? "Sí" : "No", r.ajustadaPor ?? "", r.fechaAjuste ? fechaDe(r.fechaAjuste) : "",
       r.motivoAjuste ? (ETIQUETA_MOTIVO_AJUSTE[r.motivoAjuste as MotivoAjuste] ?? r.motivoAjuste) : "",
       r.expiroSinRevision ? "Sí" : "No",
-      r.posibleManipulacion ? "Sí" : "No", r.modelo, r.usuarioNombre,
+      r.posibleManipulacion ? "Sí" : "No", describirModelo(r.modelo), r.usuarioNombre,
     ]
       .map(celdaCsv)
       .join(",");
